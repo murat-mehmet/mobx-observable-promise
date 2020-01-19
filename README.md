@@ -1,3 +1,5 @@
+# STILL IN DEVELOPMENT
+
 # mobx-observable-promise
 Observable promise implementation for mobx stores
 ## Installation 
@@ -16,9 +18,8 @@ var mission = new ObservablePromise(async () => {
 ### TypeScript
 ```typescript
 import { ObservablePromise } from 'mobx-observable-promise';
-var mission = new ObservablePromise(async () => {
-    // your async code
-});
+
+@observable myApiRequest = new ObservablePromise((params) => fetch(baseUri + '/endpoint'));
 ```
 ## Test 
 ```sh

@@ -1,0 +1,35 @@
+{
+  "name": "mobx-observable-promise",
+  "version": "0.0.1",
+  "description": "Observable promise implementation for mobx stores",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "mocha --reporter spec"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/murat-mehmet/mobx-observable-promise.git"
+  },
+  "keywords": [
+    "mobx",
+    "observable",
+    "promise"
+  ],
+  "author": "murat-mehmet",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/murat-mehmet/mobx-observable-promise/issues"
+  },
+  "homepage": "https://github.com/murat-mehmet/mobx-observable-promise#readme",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^7.0.0",
+    "typescript": "3.6.4"
+  },
+  "dependencies": {
+    "lodash.isequal": "^4.5.0",
+    "mobx": "^5.15.2"
+  }
+}

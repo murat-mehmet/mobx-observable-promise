@@ -98,12 +98,12 @@ export class ObservablePromise<T extends PromiseAction> {
 
     retry = () => this.reload();
 
-    then<TThen>(onResolved?: (value: PromiseReturnType<T>) => TThen | void) {
+    then<TThen>(onResolved?: (value: PromiseReturnType<T>) => TThen) {
         if (!this._promise) throw new Error('You have to call Request::execute before you can access it as promise');
         return this._promise.then(onResolved);
     }
 
-    catch<TThen>(onRejected: (reason: Error) => TThen | void = e => null) {
+    catch<TThen>(onRejected: (reason: Error) => TThen = e => null) {
         if (!this._promise) throw new Error('You have to call Request::execute before you can access it as promise');
         return this._promise.catch(onRejected);
     }

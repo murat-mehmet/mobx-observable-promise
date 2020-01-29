@@ -8,6 +8,8 @@
     "declaration": true,
     "outDir": "./dist",
     "strict": false,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true
   }
 }

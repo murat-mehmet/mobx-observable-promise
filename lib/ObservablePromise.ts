@@ -45,6 +45,12 @@ export class ObservablePromise<T extends PromiseAction> {
         ObservablePromise._hooks.push(hook);
     }
 
+    getResultOrDefault(def: PromiseReturnType<T>): PromiseReturnType<T> {
+        if (!this.wasExecutedSuccessfully)
+            return def;
+        return this.result;
+    }
+
     registerHook(hook) {
         this._instanceHooks.push(hook);
     }

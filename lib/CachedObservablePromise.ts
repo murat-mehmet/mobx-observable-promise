@@ -1,6 +1,6 @@
-import {action, runInAction} from 'mobx';
-import {PromiseAction, ObservablePromise} from "./ObservablePromise";
 import isEqual from 'lodash.isequal';
+import {action, runInAction} from 'mobx';
+import {ObservablePromise, PromiseAction} from "./ObservablePromise";
 
 export class CachedObservablePromise<T extends PromiseAction> extends ObservablePromise<T> {
     private _apiCalls = [];

@@ -1,4 +1,4 @@
-import {PromiseAction, PromiseReturnType, ObservablePromise} from "./ObservablePromise";
+import {ObservablePromise, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
 export type Methods<T> = Pick<T, {
     [K in keyof T]: T[K] extends PromiseAction ? K : never

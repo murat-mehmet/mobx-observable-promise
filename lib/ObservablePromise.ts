@@ -37,7 +37,14 @@ export class ObservablePromise<T extends PromiseAction> {
         return !this.wasExecuted && this.isExecuting;
     }
 
+    /**
+     * @deprecated use {@link wasSuccessful}
+     */
     @computed get wasExecutedSuccessfully() {
+        return this.wasSuccessful;
+    }
+
+    @computed get wasSuccessful() {
         return this.wasExecuted && !this.isError;
     }
 
@@ -45,10 +52,18 @@ export class ObservablePromise<T extends PromiseAction> {
         ObservablePromise._hooks.push(hook);
     }
 
-    getResultOrDefault(def: PromiseReturnType<T>): PromiseReturnType<T> {
-        if (!this.wasExecutedSuccessfully)
-            return def;
-        return this.result;
+    getResultOrDefault(def: PromiseReturnType<T>): PromiseReturnType<T>;
+    getResultOrDefault<R>(selector: (result: PromiseReturnType<T>) => R, def: R): R;
+    getResultOrDefault(...args) {
+        if (args.length == 1) {
+            if (!this.wasSuccessful)
+                return args[0];
+            return this.result;
+        } else {
+            if (!this.wasSuccessful)
+                return args[1];
+            return args[0](this.result);
+        }
     }
 
     registerHook(hook) {
@@ -119,6 +134,14 @@ export class ObservablePromise<T extends PromiseAction> {
         ObservablePromise._hooks.forEach(hook => hook(this));
     }
 
+    resolve(result: PromiseReturnType<T>) {
+        this.handleSuccess(result, null);
+    }
+
+    reject(error: Error) {
+        this.handleError(error, null);
+    }
+
     @action reset() {
         this.result = null;
         this.isExecuting = false;
@@ -150,6 +173,6 @@ export class ObservablePromise<T extends PromiseAction> {
         this.wasExecuted = true;
         this._isWaitingForResponse = false;
         this._triggerHooks();
-        reject(error);
+        reject && reject(error);
     }
 }

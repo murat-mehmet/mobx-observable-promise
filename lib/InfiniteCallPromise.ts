@@ -56,7 +56,7 @@ export class InfiniteCallPromise<T, M extends keyof Methods<T>> extends CallProm
                                 this.resultArray = [] as any;
                             const resolvedArray = this._resolver.resolve(result, callArgs);
                             if (this._resolver.hasMore)
-                                this.hasMore = this._resolver.hasMore(result);
+                                this.hasMore = this._resolver.hasMore(result, callArgs);
                             else
                                 this.hasMore = resolvedArray.length > 0;
                             if (this._resolver.totalCount)
@@ -86,6 +86,12 @@ export class InfiniteCallPromise<T, M extends keyof Methods<T>> extends CallProm
         return this;
     }
 
+    getResultArrayOrDefault(def?: PromiseReturnType<T[M] extends PromiseAction ? T[M] : any>) {
+        if (!this.wasSuccessful)
+            return def || [];
+        return this.resultArray;
+    }
+
     @action reset() {
         super.reset();
         this.hasMore = true;
@@ -97,7 +103,7 @@ export class InfiniteCallPromise<T, M extends keyof Methods<T>> extends CallProm
 export interface PageResolver {
     resolve: (result: any, callArgs: any[]) => any[],
     nextArgs: (result: any, callArgs: any[]) => any[],
-    hasMore?: (result: any) => boolean,
+    hasMore?: (result: any, callArgs: any[]) => boolean,
     totalCount?: (result: any) => number,
     totalPages?: (result: any) => number,
 }

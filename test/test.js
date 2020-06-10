@@ -10,6 +10,16 @@ describe('ObservablePromise test', () => {
         });
     });
 });
+describe('ObservablePromise queue test', () => {
+    it('should return true', async () => {
+        let callCount = 0;
+        const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => {callCount++; resolve(true)}, waitMilliseconds)));
+        testPromise.execute(1000);
+        await testPromise.queued().execute(100).then(result => {
+            expect(callCount).to.equal(2);
+        });
+    });
+});
 describe('CachedObservablePromise test', () => {
     it('should return true', async () => {
         let runCount = 0;

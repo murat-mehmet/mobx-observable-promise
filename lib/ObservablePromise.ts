@@ -15,6 +15,7 @@ export class ObservablePromise<T extends PromiseAction> {
     protected _currentCall = null;
     protected _action: T;
     protected _parser: (result: any, callArgs: any[]) => PromiseReturnType<T>;
+    protected _queued = null;
 
     constructor(action: T, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, readonly name?: string) {
         this._action = action;
@@ -75,7 +76,11 @@ export class ObservablePromise<T extends PromiseAction> {
     }
 
     execute(...callArgs: Parameters<T>) {
-        if (this._isWaitingForResponse) return this;
+        if (this._isWaitingForResponse)
+            if (this._queued) {
+                return this._promise.finally(() => this.execute(...callArgs));
+            } else
+                return this;
 
         runInAction(() => {
             this.isExecuting = true;
@@ -140,6 +145,11 @@ export class ObservablePromise<T extends PromiseAction> {
 
     reject(error: Error) {
         this.handleError(error, null);
+    }
+
+    queued(value = true) {
+        this._queued = value;
+        return this;
     }
 
     @action reset() {

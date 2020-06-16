@@ -1,5 +1,5 @@
 const expect = require('chai').expect;
-const {ObservablePromise, CachedObservablePromise, InfiniteCallPromise} = require('../dist/index.js');
+const {ObservablePromise, CachedObservablePromise, InfiniteObservablePromise} = require('../dist/index.js');
 
 describe('ObservablePromise test', () => {
     it('should return true', async () => {
@@ -41,27 +41,23 @@ describe('CachedObservablePromise test', () => {
     });
 });
 
-describe('InfiniteCallPromise test', () => {
+describe('InfiniteObservablePromise test', () => {
     it('should return true', async () => {
-        //example paged request
-        const test = {
-            async pagedRequest(offset, count) {
-                const items = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-                return {
-                    offset,
-                    count,
-                    items: items.slice(offset, offset + count)
-                }
+        const testPromise = new InfiniteObservablePromise(async (offset, count) => {
+            const items = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            return {
+                offset,
+                count,
+                items: items.slice(offset, offset + count)
             }
-        };
-        const testPromise = new InfiniteCallPromise(test, 'pagedRequest', {
+        }, {
             nextArgs: (result, [offset, count]) => [offset + count, count],
             resolve: result => result.items
         });
-        
+
         await testPromise.execute(0, 3).promise;
         expect(testPromise.resultArray).to.deep.equal([1, 2, 3]);
-        
+
         await testPromise.executeNext().promise;
         expect(testPromise.resultArray).to.deep.equal([1, 2, 3, 4, 5, 6]);
     });

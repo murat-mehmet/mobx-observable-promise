@@ -47,8 +47,8 @@ export class App extends Component {
                         {product.name}
                     </p>
                 )}
-                <Loader shown={this.myApiRequest.isExecuting} />
-                <ErrorHandler calls={[this.myApiRequest]} />
+                <Loader shown={this.productsCall.isExecuting} />
+                <ErrorHandler calls={[this.productsCall]} />
             </div>
         )
     }

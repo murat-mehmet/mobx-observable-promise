@@ -162,6 +162,10 @@ export class ObservablePromise<T extends PromiseAction> {
         return this;
     };
 
+    clone() {
+        return new ObservablePromise<T>(this._action, this._parser, this.name);
+    }
+
     @action
     protected handleSuccess(result, resolve) {
         this.result = result;

@@ -97,6 +97,10 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         this.resultArray = null;
         return this;
     };
+
+    clone() {
+        return new InfiniteObservablePromise<T>(this._action, this._resolver, this._parser, this.name);
+    }
 }
 
 export interface PageResolver {

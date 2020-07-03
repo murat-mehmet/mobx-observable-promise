@@ -63,6 +63,10 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
         this._apiCalls = [];
     }
 
+    clone() {
+        return new CachedObservablePromise<T>(this._action, this._parser, this.name);
+    }
+
     @action
     protected handleSuccess(result, resolve?) {
         this._isInvalidated = false;

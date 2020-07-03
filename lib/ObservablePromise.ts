@@ -76,11 +76,10 @@ export class ObservablePromise<T extends PromiseAction> {
     }
 
     execute(...callArgs: Parameters<T>) {
-        if (this._isWaitingForResponse)
-            if (this._queued) {
-                return this._promise.finally(() => this.execute(...callArgs));
-            } else
-                return this;
+        if (this._isWaitingForResponse) {
+            if (this._queued) this._promise = this._promise.finally(() => this.execute(...callArgs));
+            return this;
+        }
 
         runInAction(() => {
             this.isExecuting = true;

@@ -17,8 +17,7 @@ describe('ObservablePromise queue test', () => {
             callCount++;
             resolve(true)
         }, waitMilliseconds)));
-        testPromise.execute(1000);
-        await testPromise.queued().execute(100).then(result => {
+        await testPromise.queued().execute(1000).execute(100).then(result => {
             expect(callCount).to.equal(2);
         });
     });

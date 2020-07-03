@@ -85,7 +85,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         return this;
     }
 
-    getResultArrayOrDefault(def?: Parameters<T>) {
+    getResultArrayOrDefault(def?: PromiseReturnType<T>) {
         if (!this.wasSuccessful)
             return def || [];
         return this.resultArray;

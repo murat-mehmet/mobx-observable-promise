@@ -67,12 +67,12 @@ export class ObservablePromise<T extends PromiseAction> {
         }
     }
 
-    registerHook(hook: (promise: this) => any) {
+    registerHook(hook: (promise: ObservablePromise<T>) => any) {
         this._instanceHooks.push(hook);
         return () => this.unregisterHook(hook);
     }
 
-    registerHookOnce(hook: (promise: this) => any) {
+    registerHookOnce(hook: (promise: ObservablePromise<T>) => any) {
         const onceHook = (promise) => {
             this.unregisterHook(onceHook);
             hook(promise);
@@ -81,7 +81,7 @@ export class ObservablePromise<T extends PromiseAction> {
         return () => this.unregisterHook(onceHook);
     }
 
-    unregisterHook(hook: (promise: this) => any) {
+    unregisterHook(hook: (promise: ObservablePromise<T>) => any) {
         this._instanceHooks = this._instanceHooks.filter(h => h != hook);
     }
 

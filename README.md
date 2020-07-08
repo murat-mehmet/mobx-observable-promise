@@ -224,6 +224,8 @@ This method can be used to directly set error without actually executing the pro
 You can register a function which will be called after every promise execution. You should check if promise was executed successfully or rejected with an error.
 
 You can create a generic error reporter here, or chain promises after one another.
+#### `registerHookOnce(promise => {})`
+You can register a function which will be called once after an execution.
 #### `unregisterHook(hook)`
 Unregisters the hook given in `registerHook`
 #### `queued()`

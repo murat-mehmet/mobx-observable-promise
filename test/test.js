@@ -22,6 +22,16 @@ describe('ObservablePromise queue test', () => {
         });
     });
 });
+describe('ObservablePromise registerHookOnce test', () => {
+    it('should return true', async () => {
+        let runCount = 0;
+        const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
+        testPromise.registerHookOnce(() => runCount++);
+        await testPromise.queued().execute(500).execute(500).then(result => {
+            expect(runCount).to.equal(1);
+        });
+    });
+});
 describe('CachedObservablePromise test', () => {
     it('should return true', async () => {
         let runCount = 0;

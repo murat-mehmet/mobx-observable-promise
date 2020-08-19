@@ -75,7 +75,7 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
 
     @action
     protected handleError(error, reject) {
-        this._apiCalls = this._apiCalls.filter(h => h != this._apiCalls);
+        this._apiCalls = this._apiCalls.filter(h => h != this._currentCall);
         super.handleError(error, reject);
     }
 

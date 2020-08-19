@@ -81,6 +81,29 @@ export class ObservablePromise<T extends PromiseAction> {
         return () => this.unregisterHook(onceHook);
     }
 
+    chain(promise: ObservablePromise<T>) {
+        return this.registerHook(() => {
+            if (this.wasSuccessful)
+                promise.resolve(this.result);
+            else if (this.isError)
+                promise.reject(this.error)
+        })
+    }
+
+    chainResolve(promise: ObservablePromise<T>) {
+        return this.registerHook(() => {
+            if (this.wasSuccessful)
+                promise.resolve(this.result);
+        })
+    }
+
+    chainReject(promise: ObservablePromise<T>) {
+        return this.registerHook(() => {
+            if (this.isError)
+                promise.reject(this.error)
+        })
+    }
+
     unregisterHook(hook: (promise: ObservablePromise<T>) => any) {
         this._instanceHooks = this._instanceHooks.filter(h => h != hook);
     }

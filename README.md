@@ -220,6 +220,17 @@ myApiRequest.promise.catch(console.warn);
 This method can be used to directly set result without actually executing the promise
 #### `reject(result)`
 This method can be used to directly set error without actually executing the promise
+#### `chain(promise)`
+Chain the results with the specified promise. After executing this promise, any result will be passed to the specified promise. Note that `chain` methods use `registerHook` under the hood so you can call use the returned function to unchain the promise.
+```js
+const unchain = promise.chain(anotherPromise);
+// later if you need
+unchain();
+```
+#### `chainResolve(promise)`
+Chain the result with the specified promise. After executing this promise, only successful result will be passed to the specified promise.
+#### `chainReject(promise)`
+Chain the error with the specified promise. After executing this promise, only error will be passed to the specified promise.
 #### `registerHook(promise => {})`
 You can register a function which will be called after every promise execution. You should check if promise was executed successfully or rejected with an error.
 

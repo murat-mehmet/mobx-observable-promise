@@ -118,6 +118,9 @@ export class ObservablePromise<T extends PromiseAction> {
             this.isExecuting = true;
         });
 
+        this._isWaitingForResponse = true;
+        this._currentCall = {args: callArgs, result: null};
+
         this._promise = new Promise((resolve, reject) => {
             this._action(...callArgs as any)
                 .then((result) => {
@@ -145,8 +148,6 @@ export class ObservablePromise<T extends PromiseAction> {
                 });
         });
 
-        this._isWaitingForResponse = true;
-        this._currentCall = {args: callArgs, result: null};
         return this;
     }
 

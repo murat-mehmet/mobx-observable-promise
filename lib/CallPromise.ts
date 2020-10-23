@@ -10,6 +10,6 @@ export class CallPromise<T, M extends keyof Methods<T>> extends ObservablePromis
     }
 
     clone() {
-        return new CallPromise<T, M>(this.api,this.method, this._parser as any, this.name);
+        return new CallPromise<T, M>(this.api, this.method, this._parser as any, this.name);
     }
 }

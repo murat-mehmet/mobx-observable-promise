@@ -28,6 +28,7 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
             this.isExecuting = true;
         });
 
+        this._isWaitingForResponse = true;
         this._promise = new Promise((resolve, reject) => {
             this._action(...callArgs as any)
                 .then((result) => {
@@ -55,7 +56,6 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
                 });
         });
 
-        this._isWaitingForResponse = true;
         return this;
     }
 

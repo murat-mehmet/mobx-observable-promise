@@ -71,3 +71,31 @@ describe('InfiniteObservablePromise test', () => {
         expect(testPromise.resultArray).to.deep.equal([1, 2, 3, 4, 5, 6]);
     });
 });
+
+describe('ObservablePromise InfiniteObservablePromise resolve test', () => {
+    it('should return true', async () => {
+        const testObsPromise = new ObservablePromise(async (offset, count) => {
+            const items = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            return {
+                offset,
+                count,
+                items: items.slice(offset, offset + count)
+            }
+        });
+        const testPromise = new InfiniteObservablePromise(async (offset, count) => {
+            const items = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            return {
+                offset,
+                count,
+                items: items.slice(offset, offset + count)
+            }
+        }, {
+            nextArgs: (result, [offset, count]) => [offset + count, count],
+            resolve: result => result.items
+        });
+        //execute obs
+        await testObsPromise.execute(0, 3).promise;
+        testPromise.resolve(testObsPromise.result);
+        expect(testPromise.resultArray).to.deep.equal([1, 2, 3]);
+    });
+});

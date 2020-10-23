@@ -32,6 +32,9 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
             this.isExecuting = true;
         });
 
+        this._isWaitingForResponse = true;
+        this._currentCall = {args: callArgs, result: null};
+
         this._promise = new Promise((resolve, reject) => {
             this._action(...callArgs as any)
                 .then((result) => {
@@ -51,26 +54,9 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
                         }
                         runInAction(() => {
                             this.result = result as any;
-                            if (!this.resultArray || isFirst)
-                                this.resultArray = [] as any;
-                            const resolvedArray = this._resolver.resolve(result, callArgs);
-                            if (this._resolver.hasMore)
-                                this.hasMore = this._resolver.hasMore(result, callArgs);
-                            else
-                                this.hasMore = resolvedArray.length > 0;
-                            if (this._resolver.totalCount)
-                                this.totalItems = this._resolver.totalCount(result);
-                            if (this._resolver.totalPages)
-                                this.totalPages = this._resolver.totalPages(result);
-                            if (resolvedArray.length > 0)
-                                (this.resultArray as any).push(...resolvedArray);
-                            if (this._currentCall) this._currentCall.result = result;
-                            this.isExecuting = false;
-                            this.isError = false;
-                            this.wasExecuted = true;
-                            this._isWaitingForResponse = false;
-                            this._triggerHooks();
-                            resolve(result as any);
+                            if (isFirst)
+                                this.resultArray = null;
+                            this.handleSuccess(result, resolve);
                         });
                     }
                     return result;
@@ -80,8 +66,6 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
                 });
         });
 
-        this._isWaitingForResponse = true;
-        this._currentCall = {args: callArgs, result: null};
         return this;
     }
 
@@ -96,7 +80,32 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         this.hasMore = true;
         this.resultArray = null;
         return this;
-    };
+    }
+
+    @action
+    protected handleSuccess(result, resolve) {
+        this.result = result;
+        if (!this.resultArray)
+            this.resultArray = [] as any;
+        const resolvedArray = this._resolver.resolve(result, this.args);
+        if (this._resolver.hasMore)
+            this.hasMore = this._resolver.hasMore(result, this.args);
+        else
+            this.hasMore = resolvedArray.length > 0;
+        if (this._resolver.totalCount)
+            this.totalItems = this._resolver.totalCount(result);
+        if (this._resolver.totalPages)
+            this.totalPages = this._resolver.totalPages(result);
+        if (resolvedArray.length > 0)
+            (this.resultArray as any).push(...resolvedArray);
+        if (this._currentCall) this._currentCall.result = result;
+        this.isExecuting = false;
+        this.isError = false;
+        this.wasExecuted = true;
+        this._isWaitingForResponse = false;
+        this._triggerHooks();
+        resolve && resolve(result)
+    }
 
     clone() {
         return new InfiniteObservablePromise<T>(this._action, this._resolver, this._parser, this.name);

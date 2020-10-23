@@ -4,10 +4,10 @@ import {PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
 export class CachedCallPromise<T, M extends keyof Methods<T>> extends CachedObservablePromise<T[M] extends PromiseAction ? (...callArgs: Parameters<T[M]>) => Promise<T[M] extends (...args: any) => Promise<infer R> ? R : any> : never> {
     constructor(readonly api: T, readonly method: M, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T[M] extends PromiseAction ? (...callArgs: Parameters<T[M]>) => T[M] : never>, name?: string) {
-        super((api[method] as any).bind(api), parser, name || method.toString())
+        super((api[method] as any).bind(api), parser as any, name || method.toString())
     }
 
     clone() {
-        return new CachedCallPromise<T, M>(this.api,this.method, this._parser, this.name);
+        return new CachedCallPromise<T, M>(this.api, this.method, this._parser as any, this.name);
     }
 }

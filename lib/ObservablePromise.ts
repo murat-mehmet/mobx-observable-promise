@@ -104,6 +104,13 @@ export class ObservablePromise<T extends PromiseAction> {
         })
     }
 
+    chainReload(promise: ObservablePromise<any>) {
+        return this.registerHook(() => {
+            if (this.wasSuccessful)
+                promise.reload().catch();
+        })
+    }
+
     unregisterHook(hook: (promise: ObservablePromise<T>) => any) {
         this._instanceHooks = this._instanceHooks.filter(h => h != hook);
     }

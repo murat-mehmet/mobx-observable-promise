@@ -21,7 +21,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
     }
 
     executeNext(...callArgs) {
-        this._executeInternal(callArgs.length > 0 ? callArgs : this._resolver.nextArgs(this.result, this._currentCall && this._currentCall.args), false);
+        this._executeInternal(callArgs.length > 0 ? callArgs : this._resolver.nextArgs(this.result, this.args), false);
         return this;
     }
 
@@ -53,7 +53,6 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
                             }
                         }
                         runInAction(() => {
-                            this.result = result as any;
                             if (isFirst)
                                 this.resultArray = null;
                             this.handleSuccess(result, resolve);
@@ -82,14 +81,23 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         return this;
     }
 
+    clone() {
+        return new InfiniteObservablePromise<T>(this._action, this._resolver, this._parser, this.name);
+    }
+
+    resolve(result: any) {
+        this.resultArray = null;
+        this.handleSuccess(result, null);
+    }
+
     @action
     protected handleSuccess(result, resolve) {
-        this.result = result;
         if (!this.resultArray)
             this.resultArray = [] as any;
-        const resolvedArray = this._resolver.resolve(result, this.args);
+        const args = this.args;
+        const resolvedArray = this._resolver.resolve(result, args);
         if (this._resolver.hasMore)
-            this.hasMore = this._resolver.hasMore(result, this.args);
+            this.hasMore = this._resolver.hasMore(result, args);
         else
             this.hasMore = resolvedArray.length > 0;
         if (this._resolver.totalCount)
@@ -98,17 +106,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
             this.totalPages = this._resolver.totalPages(result);
         if (resolvedArray.length > 0)
             (this.resultArray as any).push(...resolvedArray);
-        if (this._currentCall) this._currentCall.result = result;
-        this.isExecuting = false;
-        this.isError = false;
-        this.wasExecuted = true;
-        this._isWaitingForResponse = false;
-        this._triggerHooks();
-        resolve && resolve(result)
-    }
-
-    clone() {
-        return new InfiniteObservablePromise<T>(this._action, this._resolver, this._parser, this.name);
+        super.handleSuccess(result, resolve);
     }
 }
 

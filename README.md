@@ -231,6 +231,8 @@ unchain();
 Chain the result with the specified promise. After executing this promise, only successful result will be passed to the specified promise.
 #### `chainReject(promise)`
 Chain the error with the specified promise. After executing this promise, only error will be passed to the specified promise.
+#### `chainReload(promise)`
+Chain the specified promise to reload after a successful resolve.
 #### `registerHook(promise => {})`
 You can register a function which will be called after every promise execution. You should check if promise was executed successfully or rejected with an error.
 

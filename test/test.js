@@ -1,5 +1,10 @@
 const expect = require('chai').expect;
 const {ObservablePromise, CachedObservablePromise, InfiniteObservablePromise} = require('../dist/index.js');
+ObservablePromise.logger.setOptions({
+    level: "verbose",
+    limitArrays: 2,
+    withData: true
+});
 
 describe('ObservablePromise test', () => {
     it('should return true', async () => {

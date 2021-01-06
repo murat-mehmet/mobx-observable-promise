@@ -1,10 +1,12 @@
 const expect = require('chai').expect;
 const {ObservablePromise, CachedObservablePromise, InfiniteObservablePromise} = require('../dist/index.js');
-ObservablePromise.logger.setOptions({
-    level: "verbose",
-    limitArrays: 2,
-    withData: true
-});
+ObservablePromise.configure({
+    logger: {
+        level: "verbose",
+        limitArrays: 2,
+        withData: true
+    },
+})
 
 describe('ObservablePromise test', () => {
     it('should return true', async () => {
@@ -15,6 +17,50 @@ describe('ObservablePromise test', () => {
         });
     });
 });
+
+describe('ObservablePromise with delay', () => {
+    it('should return true', async () => {
+        const start = new Date();
+        const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
+            delay: 1
+        });
+
+        await testPromise.execute(500).then(result => {
+            console.log('result', result)
+            expect(Date.now() - start.valueOf()).to.be.greaterThan(1000);
+            expect(result).to.equal(true);
+        });
+    });
+});
+
+describe('ObservablePromise with fill', () => {
+    it('should return true', async () => {
+        const start = new Date();
+        const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
+            fill: 1000
+        });
+
+        await testPromise.execute(500).then(result => {
+            console.log('result', result)
+            expect(Date.now() - start.valueOf()).to.be.greaterThan(1000);
+            expect(result).to.equal(true);
+        });
+    });
+});
+
+describe('ObservablePromise with timeout', () => {
+    it('should return true', async () => {
+        const start = new Date();
+        const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
+            timeout: 800
+        });
+
+        await testPromise.execute(500).then(result => {
+            expect(result).to.equal(true);
+        });
+    });
+});
+
 describe('ObservablePromise queue test', () => {
     it('should return true', async () => {
         let callCount = 0;

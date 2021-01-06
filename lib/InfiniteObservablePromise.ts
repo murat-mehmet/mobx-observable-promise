@@ -1,6 +1,6 @@
 import {action, observable, runInAction} from "mobx";
 import {LoggingLevel} from "./Logger";
-import {ObservablePromise, PromiseAction, PromiseReturnType} from "./ObservablePromise";
+import {ObservablePromise, ObservablePromiseOptions, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
 export class InfiniteObservablePromise<T extends PromiseAction> extends ObservablePromise<T> {
 
@@ -11,8 +11,10 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
 
     private _resolver: PageResolver;
 
-    constructor(action: T, resolver: PageResolver, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string) {
-        super(action, parser, name);
+    constructor(action: T, resolver: PageResolver, options: ObservablePromiseOptions<T>)
+    constructor(action: T, resolver: PageResolver, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
+    constructor(action: T, resolver: PageResolver, parserOrOptions?: ObservablePromiseOptions<T> | ((result: any, callArgs: any[]) => PromiseReturnType<T>), name?: string) {
+        super(action, parserOrOptions as any, name);
         this._resolver = resolver;
     }
 
@@ -28,15 +30,15 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
 
     _executeInternal(callArgs, isFirst: boolean) {
         if (this._isWaitingForResponse) {
-            if (this._queued) {
-                this.logger.log(LoggingLevel.verbose, `(${this.name}) Added execution to queue`);
+            if (this._options.queued) {
+                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Added execution to queue`);
                 this._promise = this._promise.finally(() => this.execute(...callArgs));
             } else {
-                this.logger.log(LoggingLevel.info, `(${this.name}) Skipped execution, an execution is already in progress`, {args: callArgs});
+                this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution, an execution is already in progress`, {args: callArgs});
             }
             return this;
         }
-        this.logger.log(LoggingLevel.verbose, `(${this.name}) Begin execution (${isFirst ? 'initial' : 'subsequent'})`, {args: callArgs});
+        this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution (${isFirst ? 'initial' : 'subsequent'})`, {args: callArgs});
 
         runInAction(() => {
             this.isExecuting = true;
@@ -51,13 +53,13 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
                     if (result instanceof Error)
                         this.handleError(result, reject);
                     else {
-                        if (this._parser) {
+                        if (this._options.parser) {
                             try {
-                                result = this._parser(result, callArgs) as any;
-                                this.logger.log(LoggingLevel.verbose, `(${this.name}) Parsed result`);
+                                result = this._options.parser(result, callArgs) as any;
+                                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Parsed result`);
                             } catch (e) {
                                 result = e
-                                this.logger.log(LoggingLevel.error, `(${this.name}) Could not parse result (${e})`);
+                                this.logger.log(LoggingLevel.error, `(${this._options.name}) Could not parse result (${e})`);
                             }
                             if (result instanceof Error) {
                                 this.handleError(result, reject);
@@ -81,9 +83,10 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
     }
 
     getResultArrayOrDefault(def?: PromiseReturnType<T>): PromiseReturnType<T> {
+        const resultArray = this.resultArray;
         if (!this.wasSuccessful)
             return def || [] as any;
-        return this.resultArray;
+        return resultArray;
     }
 
     @action reset() {
@@ -93,8 +96,8 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         return this;
     }
 
-    clone() {
-        return new InfiniteObservablePromise<T>(this._action, this._resolver, this._parser, this.name);
+    clone(options?: ObservablePromiseOptions<T>) {
+        return new InfiniteObservablePromise<T>(this._action, this._resolver, {...this._options, ...options});
     }
 
     resolve(result: any) {
@@ -107,7 +110,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         if (!this.resultArray)
             this.resultArray = [] as any;
         const args = this.args;
-        this.logger.log(LoggingLevel.verbose, `(${this.name}) Resolving array`, {args, result});
+        this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Resolving array`, {args, result});
         const resolvedArray = this._resolver.resolve(result, args);
         if (this._resolver.hasMore)
             this.hasMore = this._resolver.hasMore(result, args);
@@ -117,7 +120,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
             this.totalItems = this._resolver.totalCount(result);
         if (this._resolver.totalPages)
             this.totalPages = this._resolver.totalPages(result);
-        this.logger.log(LoggingLevel.verbose, `(${this.name}) Resolved array`, {
+        this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Resolved array`, {
             resolvedArray,
             hasMore: this.hasMore,
             totalItems: this.totalItems,

@@ -3,7 +3,8 @@ export class Logger {
         level: LoggingLevel.none,
         withData: false,
         provider: console,
-        limitArrays: 0
+        limitArrays: 0,
+        format: true
     }
 
     constructor(opts?: Partial<LoggerOptions>) {
@@ -13,7 +14,7 @@ export class Logger {
 
     log(level: LoggingLevel, text: string, data?: any) {
         if (this.opts.level >= level) {
-            this.opts.provider.log(this.prefix(level) + text + (this.opts.withData && data != null ? (" [DATA] " + JSON.stringify(this.processData(data), null, 2)) : ''));
+            this.opts.provider.log(this.prefix(level) + text + (this.opts.withData && data != null ? (" [DATA] " + JSON.stringify(this.processData(data), null, this.opts.format ? 2: null)) : ''));
         }
     }
 
@@ -96,12 +97,14 @@ export interface LoggerOptions {
     level: LoggingLevel,
     withData: boolean,
     provider: {log: (...params) => any},
-    limitArrays: number
+    limitArrays: number,
+    format: boolean
 }
 
 export interface LoggerOptionsInput {
     level: keyof typeof LoggingLevel,
     withData: boolean,
     provider: {log: (...params) => any},
-    limitArrays: number
+    limitArrays: number,
+    format: boolean
 }

@@ -1,6 +1,6 @@
 import {action, observable, runInAction} from "mobx";
 import {LoggingLevel} from "./Logger";
-import {ObservablePromise, ObservablePromiseOptions, PromiseAction, PromiseReturnType} from "./ObservablePromise";
+import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
 export class InfiniteObservablePromise<T extends PromiseAction> extends ObservablePromise<T> {
 
@@ -129,6 +129,28 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         if (resolvedArray.length > 0)
             (this.resultArray as any).push(...resolvedArray);
         super.handleSuccess(result, resolve);
+    }
+
+    @action
+    protected restoreResult(persistedObject: PersistedObject) {
+        super.restoreResult(persistedObject);
+        this.resultArray = persistedObject['resultArray'];
+        this.hasMore = persistedObject['hasMore'];
+        if (persistedObject['totalItems'])
+            this.totalItems = persistedObject['totalItems'];
+        if (persistedObject['totalPages'])
+            this.totalPages = persistedObject['totalPages'];
+    }
+
+    @action
+    protected persistResult(persistedObject: PersistedObject) {
+        persistedObject['resultArray'] = this.resultArray;
+        persistedObject['hasMore'] = this.hasMore;
+        if (this.totalItems)
+            persistedObject['totalItems'] = this.totalItems;
+        if (this.totalPages)
+            persistedObject['totalPages'] = this.totalPages;
+        super.persistResult(persistedObject);
     }
 }
 

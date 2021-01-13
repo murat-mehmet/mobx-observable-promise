@@ -8,12 +8,14 @@ export class ObservablePromise<T extends PromiseAction> {
     static logger = new Logger();
     private static defaultOptions: ObservablePromiseDefaultOptions = {};
     private static hooks = [];
+    private static persistRemoveQueue = [];
     logger = new Logger({...ObservablePromise.logger.opts});
     @observable result: PromiseReturnType<T> = null;
     @observable error = null;
     @observable isExecuting = false;
     @observable isError = false;
     @observable wasExecuted = false;
+    protected persistStore: {[key: string]: any};
     protected _isWaitingForResponse = false;
     protected _currentCall = null;
     protected _action: T;
@@ -29,6 +31,7 @@ export class ObservablePromise<T extends PromiseAction> {
                 this._options = Object.assign(this._options, parserOrOptions);
             if (!this._options.name)
                 this._options.name = name || getFuncName(action);
+
             if (this._options.delay) {
                 let action = this._action;
                 this._action = ((...args) => {
@@ -129,8 +132,54 @@ export class ObservablePromise<T extends PromiseAction> {
         this.logger.log(LoggingLevel.verbose, `(Global) Registered hook #${ObservablePromise.hooks.length}`);
     }
 
+    static hydrate(persistStore: {[key: string]: any}, store: any)
+    static hydrate(persistStore: {[key: string]: any}, ...promises: ObservablePromise<any>[])
+    static hydrate(persistStore: {[key: string]: any}, ...promisesOrPromiseWrapper: any[]) {
+        if (!promisesOrPromiseWrapper.length)
+            throw new Error('You must enter promises or object of promises');
+        runInAction(() => {
+            if (promisesOrPromiseWrapper[0] instanceof ObservablePromise) {
+                for (let i = 0; i < promisesOrPromiseWrapper.length; i++) {
+                    let promise = promisesOrPromiseWrapper[i];
+                    this.hydratePromise(promise, persistStore);
+                }
+            } else {
+                for (let key in promisesOrPromiseWrapper[0]) {
+                    if (promisesOrPromiseWrapper[0].hasOwnProperty(key)) {
+                        const promise = promisesOrPromiseWrapper[0][key];
+                        if (promise instanceof ObservablePromise) {
+                            this.hydratePromise(promise, persistStore);
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    private static hydratePromise(promise: ObservablePromise<any>, persistStore: {[p: string]: any}) {
+        promise.persistStore = persistStore;
+
+        const persistObject: PersistedObject = persistStore[promise._options.name];
+        if (persistObject) {
+            if (persistObject.expires && persistObject.expires < Date.now())
+                delete persistStore[promise._options.name];
+            else {
+                promise.result = persistObject.data;
+                if (persistObject.args)
+                    promise._currentCall = {
+                        args: persistObject.args,
+                        result: promise.result
+                    }
+                promise.restoreResult(persistObject);
+                promise.wasExecuted = true;
+            }
+        }
+    }
+
     getResultOrDefault(def?: PromiseReturnType<T>): PromiseReturnType<T>;
+
     getResultOrDefault<R>(selector: (result: PromiseReturnType<T>) => R, def: R): R;
+
     getResultOrDefault(...args) {
         const result = this.result;
         if (args.length <= 1) {
@@ -245,6 +294,10 @@ export class ObservablePromise<T extends PromiseAction> {
     }
 
     reload() {
+        if (!this._currentCall) {
+            this.logger.log(LoggingLevel.error, `(${this._options.name}) Cannot reload non-executed promise`);
+            return this;
+        }
         this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Re-executing with same parameters`);
         return this.execute(...this._currentCall.args);
     }
@@ -298,6 +351,16 @@ export class ObservablePromise<T extends PromiseAction> {
         this.logger.log(LoggingLevel.info, `(${this._options.name}) Execution was successful`, result);
         this.result = result;
         if (this._currentCall) this._currentCall.result = result;
+        if (this.persistStore) {
+            this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Saving result to store`);
+            const persistObject: PersistedObject = {
+                args: this._currentCall ? this._currentCall.args : null,
+                data: result
+            };
+            if (this._options.expiresIn)
+                persistObject.expires = Date.now() + this._options.expiresIn;
+            this.persistResult(persistObject);
+        }
         this.isExecuting = false;
         this.isError = false;
         this.wasExecuted = true;
@@ -316,6 +379,15 @@ export class ObservablePromise<T extends PromiseAction> {
         this._isWaitingForResponse = false;
         this.triggerHooks();
         reject && reject(error);
+    }
+
+    @action
+    protected persistResult(persistedObject: PersistedObject) {
+        this.persistStore[this._options.name] = persistedObject;
+    }
+
+    @action
+    protected restoreResult(persistedObject: PersistedObject) {
     }
 
     private triggerHooks() {
@@ -338,6 +410,7 @@ export interface ObservablePromiseOptions<T extends PromiseAction> {
     fill?: number;
     timeout?: number;
     timeoutMessage?: string;
+    expiresIn?: number;
 }
 
 export interface ObservablePromiseDefaultOptions {
@@ -346,6 +419,12 @@ export interface ObservablePromiseDefaultOptions {
     fill?: number;
     timeout?: number;
     timeoutMessage?: string;
+}
+
+export interface PersistedObject {
+    args: any[],
+    data: any,
+    expires?: number
 }
 
 const sleep = (time) => new Promise((res) => setTimeout(res, time));

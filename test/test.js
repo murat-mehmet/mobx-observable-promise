@@ -22,7 +22,7 @@ describe('ObservablePromise with delay', () => {
     it('should return true', async () => {
         const start = new Date();
         const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
-            delay: 1
+            delay: 500
         });
 
         await testPromise.execute(500).then(result => {
@@ -148,5 +148,40 @@ describe('ObservablePromise InfiniteObservablePromise resolve test', () => {
         await testObsPromise.execute(0, 3).promise;
         testPromise.resolve(testObsPromise.result);
         expect(testPromise.resultArray).to.deep.equal([1, 2, 3]);
+    });
+});
+
+describe('ObservablePromise persist test', () => {
+    it('should return true', async () => {
+        const persistStore = {};
+        let testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {name: 'testPromise', expiresIn: 1000});
+        ObservablePromise.hydrate(persistStore, testPromise);
+        await testPromise.execute(100).then(async result => {
+
+            await new Promise(resolve => setTimeout(() => resolve(true), 100))
+            testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {name: 'testPromise', expiresIn: 1000});
+            ObservablePromise.hydrate(persistStore, testPromise);
+            expect(testPromise.result).to.equal(true);
+        });
+
+    });
+});
+
+describe('CachedObservablePromise persist test', () => {
+    it('should return true', async () => {
+        let runCount = 0;
+        const testPromise = new CachedObservablePromise((waitMilliseconds) => new Promise(resolve => {
+            runCount++;
+            setTimeout(() => resolve(true), waitMilliseconds);
+        }), {expiresIn: 300});
+        await testPromise.execute(100).then(result => {
+            expect(result).to.equal(true);
+            expect(runCount).to.equal(1);
+        });
+        await new Promise(resolve => setTimeout(() => resolve(true), 100))
+        await testPromise.execute(100).then(result => {
+            expect(result).to.equal(true);
+            expect(runCount).to.equal(1);
+        });
     });
 });

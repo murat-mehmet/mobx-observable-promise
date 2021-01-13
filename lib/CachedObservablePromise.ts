@@ -1,7 +1,7 @@
 import isEqual from 'lodash.isequal';
 import {action, runInAction} from 'mobx';
 import {LoggingLevel} from "./Logger";
-import {ObservablePromise, ObservablePromiseOptions, PromiseAction} from "./ObservablePromise";
+import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction} from "./ObservablePromise";
 
 export class CachedObservablePromise<T extends PromiseAction> extends ObservablePromise<T> {
     private _apiCalls = [];
@@ -79,16 +79,34 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
     @action
     protected handleError(error, reject) {
         this._apiCalls = this._apiCalls.filter(h => h != this._currentCall);
+        if (this.persistStore) {
+            const persistObject = this.persistStore[this._options.name];
+            this.persistResult(persistObject);
+        }
         super.handleError(error, reject);
+    }
+
+    @action
+    protected restoreResult(persistedObject: PersistedObject) {
+        super.restoreResult(persistedObject);
+        this._apiCalls = persistedObject['apiCalls'];
+    }
+
+    @action
+    protected persistResult(persistedObject: PersistedObject) {
+        persistedObject['apiCalls'] = this._apiCalls.filter(x => !x.expires || x.expires > Date.now());
+        super.persistResult(persistedObject);
     }
 
     private _addApiCall(args) {
         const newCall = {args, result: null};
+        if (this._options.expiresIn)
+            newCall['expires'] = Date.now() + this._options.expiresIn;
         this._apiCalls.push(newCall);
         return newCall;
     }
 
     private _findApiCall(args) {
-        return this._apiCalls.find(c => isEqual(c.args, args));
+        return this._apiCalls.find(c => isEqual(c.args, args) && (!c.expires || c.expires > Date.now()));
     }
 }

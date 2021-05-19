@@ -1,4 +1,4 @@
-import {action, observable, runInAction} from "mobx";
+import {action, makeObservable, observable, override, runInAction} from "mobx";
 import {LoggingLevel} from "./Logger";
 import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
@@ -9,23 +9,22 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
     @observable totalItems = 0;
     @observable totalPages = 0;
 
-    private _resolver: PageResolver;
+    private readonly _resolver: PageResolver;
 
     constructor(action: T, resolver: PageResolver, options: ObservablePromiseOptions<T>)
     constructor(action: T, resolver: PageResolver, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
     constructor(action: T, resolver: PageResolver, parserOrOptions?: ObservablePromiseOptions<T> | ((result: any, callArgs: any[]) => PromiseReturnType<T>), name?: string) {
         super(action, parserOrOptions as any, name);
+        makeObservable(this);
         this._resolver = resolver;
     }
 
     execute(...callArgs: Parameters<T>) {
-        this._executeInternal(callArgs, true);
-        return this;
+        return this._executeInternal(callArgs, true);
     }
 
     executeNext(...callArgs) {
-        this._executeInternal(callArgs.length > 0 ? callArgs : this._resolver.nextArgs(this.result, this.args), false);
-        return this;
+        return this._executeInternal(callArgs.length > 0 ? callArgs : this._resolver.nextArgs(this.result, this.args), false);
     }
 
     _executeInternal(callArgs, isFirst: boolean) {
@@ -89,7 +88,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         return resultArray;
     }
 
-    @action reset() {
+    @override reset() {
         super.reset();
         this.hasMore = true;
         this.resultArray = null;
@@ -105,8 +104,8 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         this.handleSuccess(result, null);
     }
 
-    @action
-    protected handleSuccess(result, resolve) {
+    @override
+    protected handleSuccess(result, resolve, skipPersist?) {
         if (!this.resultArray)
             this.resultArray = [] as any;
         const args = this.args;
@@ -128,10 +127,10 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         });
         if (resolvedArray.length > 0)
             (this.resultArray as any).push(...resolvedArray);
-        super.handleSuccess(result, resolve);
+        super.handleSuccess(result, resolve, skipPersist);
     }
 
-    @action
+    @override
     protected restoreResult(persistedObject: PersistedObject) {
         super.restoreResult(persistedObject);
         this.resultArray = persistedObject['resultArray'];
@@ -142,7 +141,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
             this.totalPages = persistedObject['totalPages'];
     }
 
-    @action
+    @override
     protected persistResult(persistedObject: PersistedObject) {
         persistedObject['resultArray'] = this.resultArray;
         persistedObject['hasMore'] = this.hasMore;

@@ -170,18 +170,33 @@ describe('ObservablePromise persist test', () => {
 describe('CachedObservablePromise persist test', () => {
     it('should return true', async () => {
         let runCount = 0;
-        const testPromise = new CachedObservablePromise((waitMilliseconds) => new Promise(resolve => {
+        const persistStore = {};
+        let testPromise = new CachedObservablePromise((waitMilliseconds) => new Promise(resolve => {
             runCount++;
             setTimeout(() => resolve(true), waitMilliseconds);
-        }), {expiresIn: 300});
-        await testPromise.execute(100).then(result => {
+        }), {name: 'testPromise', expiresIn: 500});
+        ObservablePromise.hydrate(persistStore, testPromise);
+        await testPromise.execute(50).then(result => {
             expect(result).to.equal(true);
             expect(runCount).to.equal(1);
         });
-        await new Promise(resolve => setTimeout(() => resolve(true), 100))
-        await testPromise.execute(100).then(result => {
+        await new Promise(resolve => setTimeout(() => resolve(true), 200))
+        await testPromise.execute(100).then(async result => {
             expect(result).to.equal(true);
-            expect(runCount).to.equal(1);
+            expect(runCount).to.equal(2);
+
+
+            await new Promise(resolve => setTimeout(() => resolve(true), 300))
+            testPromise = new CachedObservablePromise((waitMilliseconds) => new Promise(resolve => {
+                runCount++;
+                setTimeout(() => resolve(true), waitMilliseconds);
+            }), {name: 'testPromise', expiresIn: 500});
+            ObservablePromise.hydrate(persistStore, testPromise);
+            expect(testPromise.result).to.equal(true);
+            await testPromise.execute(100).then(result => {
+                expect(result).to.equal(true);
+                expect(runCount).to.equal(2);
+            });
         });
     });
 });

@@ -1,4 +1,4 @@
-import {action, computed, observable, runInAction} from "mobx";
+import {action, computed, makeObservable, observable, runInAction} from "mobx";
 import {Logger, LoggerOptionsInput, LoggingLevel} from "./Logger";
 
 export type PromiseReturnType<T extends (...args: any) => any> = T extends (...args: any) => Promise<infer R> ? R : any;
@@ -25,6 +25,7 @@ export class ObservablePromise<T extends PromiseAction> {
     constructor(action: T, options: ObservablePromiseOptions<T>)
     constructor(action: T, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
     constructor(action: T, parserOrOptions?: ObservablePromiseOptions<T> | ((result: any, callArgs: any[]) => PromiseReturnType<T>), name?: string) {
+        makeObservable(this);
         this._action = action;
         if (typeof parserOrOptions == 'object') {
             if (parserOrOptions)
@@ -347,11 +348,11 @@ export class ObservablePromise<T extends PromiseAction> {
     }
 
     @action
-    protected handleSuccess(result, resolve?) {
+    protected handleSuccess(result, resolve?, skipPersist?) {
         this.logger.log(LoggingLevel.info, `(${this._options.name}) Execution was successful`, result);
         this.result = result;
         if (this._currentCall) this._currentCall.result = result;
-        if (this.persistStore) {
+        if (!skipPersist && this.persistStore) {
             this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Saving result to store`);
             const persistObject: PersistedObject = {
                 args: this._currentCall ? this._currentCall.args : null,

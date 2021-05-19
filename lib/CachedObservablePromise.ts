@@ -1,10 +1,17 @@
 import isEqual from 'lodash.isequal';
-import {action, runInAction} from 'mobx';
+import {makeObservable, override, runInAction} from 'mobx';
 import {LoggingLevel} from "./Logger";
-import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction} from "./ObservablePromise";
+import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
 export class CachedObservablePromise<T extends PromiseAction> extends ObservablePromise<T> {
     private _apiCalls = [];
+
+    constructor(action: T, options: ObservablePromiseOptions<T>)
+    constructor(action: T, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
+    constructor(action: T, parserOrOptions?: ObservablePromiseOptions<T> | ((result: any, callArgs: any[]) => PromiseReturnType<T>), name?: string) {
+        super(action, parserOrOptions as any, name);
+        makeObservable(this);
+    }
 
     execute(...callArgs: Parameters<T>) {
         if (this._isWaitingForResponse) {
@@ -25,7 +32,7 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
             this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution, resolving cached result`);
             this._currentCall = existingApiCall;
 
-            this.handleSuccess(existingApiCall.result);
+            this.handleSuccess(existingApiCall.result, null, true);
             this._promise = Promise.resolve(existingApiCall.result);
             return this;
         }
@@ -76,7 +83,7 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
         return new CachedObservablePromise<T>(this._action, {...this._options, ...options});
     }
 
-    @action
+    @override
     protected handleError(error, reject) {
         this._apiCalls = this._apiCalls.filter(h => h != this._currentCall);
         if (this.persistStore) {
@@ -86,13 +93,13 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
         super.handleError(error, reject);
     }
 
-    @action
+    @override
     protected restoreResult(persistedObject: PersistedObject) {
         super.restoreResult(persistedObject);
         this._apiCalls = persistedObject['apiCalls'];
     }
 
-    @action
+    @override
     protected persistResult(persistedObject: PersistedObject) {
         persistedObject['apiCalls'] = this._apiCalls.filter(x => !x.expires || x.expires > Date.now());
         super.persistResult(persistedObject);

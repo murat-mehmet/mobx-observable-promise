@@ -221,7 +221,7 @@ This method can be used to directly set result without actually executing the pr
 #### `reject(result)`
 This method can be used to directly set error without actually executing the promise
 #### `chain(promise)`
-Chain the results with the specified promise. After executing this promise, any result will be passed to the specified promise. Note that `chain` methods use `registerHook` under the hood so you can call use the returned function to unchain the promise.
+Chain the results with the specified promise. After executing this promise, any result will be passed to the specified promise. Note that `chain` methods use `registerHook` under the hood so you can call the returned function to unchain the promise.
 ```js
 const unchain = promise.chain(anotherPromise);
 // later if you need

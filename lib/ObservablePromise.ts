@@ -367,7 +367,7 @@ export class ObservablePromise<T extends PromiseAction> {
         this.wasExecuted = true;
         this._isWaitingForResponse = false;
         this.triggerHooks();
-        resolve && resolve(result)
+        resolve && resolve(this.result)
     }
 
     @action
@@ -379,7 +379,7 @@ export class ObservablePromise<T extends PromiseAction> {
         this.wasExecuted = true;
         this._isWaitingForResponse = false;
         this.triggerHooks();
-        reject && reject(error);
+        reject && reject(this.error);
     }
 
     @action

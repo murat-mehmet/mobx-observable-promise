@@ -1,3 +1,4 @@
+const {reaction} = require("mobx");
 const expect = require('chai').expect;
 const {ObservablePromise, CachedObservablePromise, InfiniteObservablePromise} = require('../dist/index.js');
 ObservablePromise.configure({
@@ -120,6 +121,41 @@ describe('InfiniteObservablePromise test', () => {
 
         await testPromise.executeNext().promise;
         expect(testPromise.resultArray).to.deep.equal([1, 2, 3, 4, 5, 6]);
+    });
+});
+
+describe('InfiniteObservablePromise resultArray reaction test', () => {
+    it('should return true', async () => {
+        const testPromise = new InfiniteObservablePromise(async (offset, count) => {
+            const items = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            return {
+                offset,
+                count,
+                items: items.slice(offset, offset + count)
+            }
+        }, {
+            nextArgs: (result, [offset, count]) => [offset + count, count],
+            resolve: result => result.items
+        });
+
+        let reacted = 0;
+        reaction(() => testPromise.resultArray, () => {
+            console.log('reacted', testPromise.resultArray && testPromise.resultArray.length);
+            reacted++;
+        });
+
+        await testPromise.execute(0, 3).promise;
+        expect(testPromise.resultArray).to.deep.equal([1, 2, 3]);
+
+        await testPromise.executeNext().promise;
+        expect(testPromise.resultArray).to.deep.equal([1, 2, 3, 4, 5, 6]);
+
+
+        await testPromise.execute(0, 3).promise;
+        expect(testPromise.resultArray).to.deep.equal([1, 2, 3]);
+
+
+        expect(reacted).to.equal(2);
     });
 });
 

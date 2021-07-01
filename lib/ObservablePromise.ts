@@ -1,4 +1,4 @@
-import {action, computed, makeObservable, observable, runInAction} from "mobx";
+import {action, computed, observable, runInAction} from "mobx";
 import {Logger, LoggerOptionsInput, LoggingLevel} from "./Logger";
 
 export type PromiseReturnType<T extends (...args: any) => any> = T extends (...args: any) => Promise<infer R> ? R : any;
@@ -25,7 +25,6 @@ export class ObservablePromise<T extends PromiseAction> {
     constructor(action: T, options: ObservablePromiseOptions<T>)
     constructor(action: T, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
     constructor(action: T, parserOrOptions?: ObservablePromiseOptions<T> | ((result: any, callArgs: any[]) => PromiseReturnType<T>), name?: string) {
-        makeObservable(this);
         this._action = action;
         if (typeof parserOrOptions == 'object') {
             if (parserOrOptions)

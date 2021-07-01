@@ -1,5 +1,5 @@
 import isEqual from 'lodash.isequal';
-import {makeObservable, override, runInAction} from 'mobx';
+import {action, runInAction} from 'mobx';
 import {LoggingLevel} from "./Logger";
 import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
@@ -10,7 +10,6 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
     constructor(action: T, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
     constructor(action: T, parserOrOptions?: ObservablePromiseOptions<T> | ((result: any, callArgs: any[]) => PromiseReturnType<T>), name?: string) {
         super(action, parserOrOptions as any, name);
-        makeObservable(this);
     }
 
     execute(...callArgs: Parameters<T>) {
@@ -83,7 +82,7 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
         return new CachedObservablePromise<T>(this._action, {...this._options, ...options});
     }
 
-    @override
+    @action
     protected handleError(error, reject) {
         this._apiCalls = this._apiCalls.filter(h => h != this._currentCall);
         if (this.persistStore) {
@@ -93,13 +92,13 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
         super.handleError(error, reject);
     }
 
-    @override
+    @action
     protected restoreResult(persistedObject: PersistedObject) {
         super.restoreResult(persistedObject);
         this._apiCalls = persistedObject['apiCalls'];
     }
 
-    @override
+    @action
     protected persistResult(persistedObject: PersistedObject) {
         persistedObject['apiCalls'] = this._apiCalls.filter(x => !x.expires || x.expires > Date.now());
         super.persistResult(persistedObject);

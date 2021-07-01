@@ -1,4 +1,4 @@
-import {action, makeObservable, observable, override, runInAction} from "mobx";
+import {action, observable, runInAction} from "mobx";
 import {LoggingLevel} from "./Logger";
 import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
@@ -15,7 +15,6 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
     constructor(action: T, resolver: PageResolver, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
     constructor(action: T, resolver: PageResolver, parserOrOptions?: ObservablePromiseOptions<T> | ((result: any, callArgs: any[]) => PromiseReturnType<T>), name?: string) {
         super(action, parserOrOptions as any, name);
-        makeObservable(this);
         this._resolver = resolver;
     }
 
@@ -88,7 +87,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         return resultArray;
     }
 
-    @override reset() {
+    @action reset() {
         super.reset();
         this.hasMore = true;
         this.resultArray = null;
@@ -104,7 +103,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         this.handleSuccess(result, null);
     }
 
-    @override
+    @action
     protected handleSuccess(result, resolve, skipPersist?) {
         if (!this.resultArray)
             this.resultArray = [] as any;
@@ -130,7 +129,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         super.handleSuccess(result, resolve, skipPersist);
     }
 
-    @override
+    @action
     protected restoreResult(persistedObject: PersistedObject) {
         super.restoreResult(persistedObject);
         this.resultArray = persistedObject['resultArray'];
@@ -141,7 +140,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
             this.totalPages = persistedObject['totalPages'];
     }
 
-    @override
+    @action
     protected persistResult(persistedObject: PersistedObject) {
         persistedObject['resultArray'] = this.resultArray;
         persistedObject['hasMore'] = this.hasMore;

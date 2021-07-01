@@ -1,4 +1,3 @@
-import {makeObservable} from 'mobx';
 import {LoggingLevel} from "./Logger";
 import {ObservablePromise, ObservablePromiseOptions} from "./ObservablePromise";
 
@@ -42,7 +41,6 @@ export class FetchPromise<TResult> extends ObservablePromise<PromiseFetchAction<
                 return this.bodyParsed || this.responseText;
             })
         }) as any, options);
-        makeObservable(this);
     }
 
     clone(options?: ObservablePromiseOptions<PromiseFetchAction<TResult>>) {

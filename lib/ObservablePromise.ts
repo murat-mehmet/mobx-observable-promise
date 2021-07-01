@@ -338,6 +338,11 @@ export class ObservablePromise<T extends PromiseAction> {
         this.wasExecuted = false;
         this._isWaitingForResponse = false;
         this._promise = null;
+        if (this.persistStore) {
+            this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Saving to store`);
+            if (this.persistStore[this._options.name])
+                delete this.persistStore[this._options.name];
+        }
 
         return this;
     };

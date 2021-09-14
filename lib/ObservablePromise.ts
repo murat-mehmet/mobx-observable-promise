@@ -8,7 +8,6 @@ export class ObservablePromise<T extends PromiseAction> {
     static logger = new Logger();
     private static defaultOptions: ObservablePromiseDefaultOptions = {};
     private static hooks = [];
-    private static persistRemoveQueue = [];
     logger = new Logger({...ObservablePromise.logger.opts});
     @observable result: PromiseReturnType<T> = null;
     @observable error = null;
@@ -176,21 +175,37 @@ export class ObservablePromise<T extends PromiseAction> {
         }
     }
 
+    /**
+     * @deprecated Use {@link getResult} and {@link getResultOf}
+     * @param def
+     */
     getResultOrDefault(def?: PromiseReturnType<T>): PromiseReturnType<T>;
 
     getResultOrDefault<R>(selector: (result: PromiseReturnType<T>) => R, def: R): R;
 
     getResultOrDefault(...args) {
-        const result = this.result;
         if (args.length <= 1) {
-            if (!this.wasSuccessful)
-                return args.length == 1 ? args[0] : null;
-            return result;
+            return this.getResult(args[0]);
         } else {
-            if (!this.wasSuccessful)
-                return args[1];
-            return args[0](result);
+            return this.getResultOf(args[0], args[1]);
         }
+    }
+
+
+    getResult(defaultValue?: (PromiseReturnType<T> | (() => PromiseReturnType<T>))): PromiseReturnType<T> {
+        const {result} = this;
+        if (!this.wasSuccessful)
+            return typeof defaultValue == 'function' ? (defaultValue as any)() : defaultValue;
+        return result;
+    }
+
+    getResultOf<R>(selector: (result: PromiseReturnType<T>) => R, defaultValue?: R | (() => R)): R {
+        if (typeof selector != 'function')
+            throw new Error(`selector must be a function but you entered ${typeof selector}`)
+        const {result} = this;
+        if (!this.wasSuccessful)
+            return typeof defaultValue == 'function' ? (defaultValue as any)() : defaultValue;
+        return selector(result);
     }
 
     registerHook(hook: (promise: ObservablePromise<T>) => any) {
@@ -206,6 +221,20 @@ export class ObservablePromise<T extends PromiseAction> {
         };
         this.registerHook(onceHook);
         return () => this.unregisterHook(onceHook);
+    }
+
+    registerHookSuccess(hook: (promise: ObservablePromise<T>) => any) {
+        return this.registerHook((promise) => {
+            if (this.wasSuccessful)
+                hook(promise)
+        })
+    }
+
+    registerHookError(hook: (promise: ObservablePromise<T>) => any) {
+        return this.registerHook((promise) => {
+            if (this.isError)
+                hook(promise)
+        })
     }
 
     chain(promise: ObservablePromise<T>) {

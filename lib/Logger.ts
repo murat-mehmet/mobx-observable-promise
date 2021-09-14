@@ -14,7 +14,7 @@ export class Logger {
 
     log(level: LoggingLevel, text: string, data?: any) {
         if (this.opts.level >= level) {
-            this.opts.provider.log(this.prefix(level) + text + (this.opts.withData && data != null ? (" [DATA] " + JSON.stringify(this.processData(data), null, this.opts.format ? 2: null)) : ''));
+            this.opts.provider.log(this.prefix(level) + text + (this.opts.withData && data != null ? (" [DATA] " + JSON.stringify(this.processData(data), null, this.opts.format ? 2 : null)) : ''));
         }
     }
 

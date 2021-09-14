@@ -1,4 +1,4 @@
-import {action, makeObservable, observable, override, runInAction} from "mobx";
+import {makeObservable, observable, override, runInAction} from "mobx";
 import {LoggingLevel} from "./Logger";
 import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
@@ -81,11 +81,19 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         return this;
     }
 
-    getResultArrayOrDefault(def?: PromiseReturnType<T>): PromiseReturnType<T> {
-        const resultArray = this.resultArray;
+    getList(defaultValue?: (PromiseReturnType<T> | (() => PromiseReturnType<T>))): PromiseReturnType<T> {
+        const {resultArray} = this;
         if (!this.wasSuccessful)
-            return def || [] as any;
+            return (typeof defaultValue == 'function' ? (defaultValue as any)() : defaultValue) || [];
         return resultArray;
+    }
+
+    /**
+     * @deprecated Use {@link getList} and {@link getResultOf}
+     * @param def
+     */
+    getResultArrayOrDefault(def?: PromiseReturnType<T>): PromiseReturnType<T> {
+        return this.getList(def);
     }
 
     @override reset() {

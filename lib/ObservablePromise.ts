@@ -299,8 +299,8 @@ export class ObservablePromise<T extends PromiseAction> {
                     else {
                         if (this._options.parser) {
                             try {
+                                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Parsing result`, result);
                                 result = this._options.parser(result, callArgs);
-                                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Parsed result`);
                             } catch (e) {
                                 result = e;
                                 this.logger.log(LoggingLevel.error, `(${this._options.name}) Could not parse result (${e})`);

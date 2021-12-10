@@ -21,7 +21,7 @@ export class Logger {
                     method = 'error';
                     break;
                 case LoggingLevel.info:
-                    method = 'info';
+                    method = 'log';
                     break;
                 case LoggingLevel.verbose:
                     method = 'debug';
@@ -131,7 +131,7 @@ export interface LoggerOptions {
     level: LoggingLevel,
     withData: boolean,
     provider: {
-        info: (...params) => any,
+        log: (...params) => any,
         debug: (...params) => any,
         error: (...params) => any,
     },
@@ -143,7 +143,11 @@ export interface LoggerOptions {
 export interface LoggerOptionsInput {
     level: keyof typeof LoggingLevel,
     withData: boolean,
-    provider: {log: (...params) => any},
+    provider: {
+        log: (...params) => any,
+        debug: (...params) => any,
+        error: (...params) => any,
+    },
     limitArrays: number,
     limitStrings: number,
     format: boolean

@@ -4,6 +4,7 @@ export class Logger {
         withData: false,
         provider: console,
         limitArrays: 0,
+        limitStrings: 0,
         format: true
     }
 
@@ -14,7 +15,20 @@ export class Logger {
 
     log(level: LoggingLevel, text: string, data?: any) {
         if (this.opts.level >= level) {
-            this.opts.provider.log(this.prefix(level) + text + (this.opts.withData && data != null ? (" [DATA] " + JSON.stringify(this.processData(data), null, this.opts.format ? 2 : null)) : ''));
+            let method;
+            switch (level) {
+                case LoggingLevel.error:
+                    method = 'error';
+                    break;
+                case LoggingLevel.info:
+                    method = 'info';
+                    break;
+                case LoggingLevel.verbose:
+                    method = 'debug';
+                    break;
+            }
+            if (method)
+                this.opts.provider[method](this.prefix(level) + text + (this.opts.withData && data != null ? (" [DATA] " + JSON.stringify(this.processData(data), null, this.opts.format ? 2 : null)) : ''));
         }
     }
 
@@ -53,33 +67,53 @@ export class Logger {
     }
 
     private processData(data) {
-        if (this.opts.limitArrays)
+        if (this.opts.limitArrays || this.opts.limitStrings) {
             data = JSON.parse(JSON.stringify(data));
-
-        if (this.opts.limitArrays)
-            this.doLimitArrays(data);
+            this.doLimitObject(data);
+        }
 
         return data;
     }
 
-    private doLimitArrays(obj) {
+    private doLimitObject(obj) {
         if (Array.isArray(obj) && obj.length > 0) {
-            if (obj.length > this.opts.limitArrays) {
-                const originalLength = obj.length;
-                obj.splice(this.opts.limitArrays);
-                const removedItemCount = originalLength - obj.length;
-                obj.push(`[MOP] ${removedItemCount} more item${removedItemCount > 1 ? 's' : ''}`)
+            if (this.opts.limitArrays) {
+                if (obj.length > this.opts.limitArrays) {
+                    const originalLength = obj.length;
+                    obj.splice(this.opts.limitArrays);
+                    const removedItemCount = originalLength - obj.length;
+                    obj.push(`[MOP] ${removedItemCount} more item${removedItemCount > 1 ? 's' : ''}`)
+                }
             }
             for (let i = 0; i < obj.length; i++) {
-                if (obj[i])
-                    this.doLimitArrays(obj[i])
+                const element = obj[i];
+                if (element) {
+                    if (this.opts.limitStrings) {
+                        if (typeof element == 'string' && element.length > this.opts.limitStrings) {
+                            const originalLength = element.length;
+                            obj[i] = element.substring(0, this.opts.limitStrings);
+                            const removedItemCount = originalLength - obj[i].length;
+                            obj[i] += `... [MOP] ${removedItemCount} more char${removedItemCount > 1 ? 's' : ''}`
+                        }
+                    }
+                    this.doLimitObject(obj[i])
+                }
             }
         } else if (typeof obj == 'object') {
             for (let key in obj) {
                 if (obj.hasOwnProperty(key)) {
                     const element = obj[key];
-                    if (element)
-                        this.doLimitArrays(element);
+                    if (element) {
+                        if (this.opts.limitStrings) {
+                            if (typeof element == 'string' && element.length > this.opts.limitStrings) {
+                                const originalLength = element.length;
+                                obj[key] = element.substring(0, this.opts.limitStrings);
+                                const removedItemCount = originalLength - obj[key].length;
+                                obj[key] += `... [MOP] ${removedItemCount} more char${removedItemCount > 1 ? 's' : ''}`
+                            }
+                        }
+                        this.doLimitObject(obj[key]);
+                    }
                 }
             }
         }
@@ -96,8 +130,13 @@ export enum LoggingLevel {
 export interface LoggerOptions {
     level: LoggingLevel,
     withData: boolean,
-    provider: {log: (...params) => any},
+    provider: {
+        info: (...params) => any,
+        debug: (...params) => any,
+        error: (...params) => any,
+    },
     limitArrays: number,
+    limitStrings: number,
     format: boolean
 }
 
@@ -106,5 +145,6 @@ export interface LoggerOptionsInput {
     withData: boolean,
     provider: {log: (...params) => any},
     limitArrays: number,
+    limitStrings: number,
     format: boolean
 }

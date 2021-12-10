@@ -26,8 +26,12 @@ export class ObservablePromise<T extends PromiseAction> {
     constructor(action: T, parserOrOptions?: ObservablePromiseOptions<T> | ((result: any, callArgs: any[]) => PromiseReturnType<T>), name?: string) {
         this._action = action;
         if (typeof parserOrOptions == 'object') {
-            if (parserOrOptions)
-                this._options = Object.assign(this._options, parserOrOptions);
+            if (parserOrOptions) {
+                const {logger: loggerOptions, ...parserOptions} = parserOrOptions;
+                if (loggerOptions)
+                    this.logger.setOptions(loggerOptions);
+                this._options = Object.assign(this._options, parserOptions);
+            }
             if (!this._options.name)
                 this._options.name = name || getFuncName(action);
 
@@ -445,6 +449,7 @@ export interface ObservablePromiseOptions<T extends PromiseAction> {
     timeout?: number;
     timeoutMessage?: string;
     expiresIn?: number;
+    logger?: Partial<LoggerOptionsInput>
 }
 
 export interface ObservablePromiseDefaultOptions {

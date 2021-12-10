@@ -18,6 +18,21 @@ describe('ObservablePromise test', () => {
         });
     });
 });
+describe('ObservablePromise limitStrings test', () => {
+    it('should return true', async () => {
+        const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve({
+            test: '123456'
+        }), waitMilliseconds)), {
+            logger: {
+                limitStrings: 3
+            }
+        });
+        testPromise.getResultOrDefault()
+        await testPromise.execute(500).then(result => {
+            expect(result.test).to.equal('123456');
+        });
+    });
+});
 
 describe('ObservablePromise with delay', () => {
     it('should return true', async () => {

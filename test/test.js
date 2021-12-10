@@ -5,6 +5,7 @@ ObservablePromise.configure({
     logger: {
         level: "verbose",
         limitArrays: 2,
+        limitStrings: 3,
         withData: true
     },
 })
@@ -21,10 +22,12 @@ describe('ObservablePromise test', () => {
 describe('ObservablePromise limitStrings test', () => {
     it('should return true', async () => {
         const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve({
-            test: '123456'
+            test: {
+                test2: '123456'
+            }
         }), waitMilliseconds)), {
             logger: {
-                limitStrings: 3
+                limitArrays: 2
             }
         });
         testPromise.getResultOrDefault()

@@ -32,7 +32,7 @@ describe('ObservablePromise limitStrings test', () => {
         });
         testPromise.getResultOrDefault()
         await testPromise.execute(500).then(result => {
-            expect(result.test).to.equal('123456');
+            expect(result.test.test2).to.equal('123456');
         });
     });
 });

@@ -16,7 +16,7 @@ export class ObservablePromise<T extends PromiseAction> {
     @observable isError = false;
     @observable wasExecuted = false;
     protected persistStore: {[key: string]: any};
-    protected _mutex = new Mutex();
+    protected _mutex = new Mutex(new ResetError());
     protected _currentCall = null;
     protected _action: T;
     protected _options: ObservablePromiseOptions<T> = {...ObservablePromise.defaultOptions};
@@ -371,7 +371,6 @@ export class ObservablePromise<T extends PromiseAction> {
         this.wasExecuted = false;
         if (this._mutex.isLocked())
             this._mutex.cancel();
-        this._promise = null;
         if (this.persistStore) {
             this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Saving to store`);
             if (this.persistStore[this._options.name])

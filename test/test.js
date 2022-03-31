@@ -4,8 +4,6 @@ const {ObservablePromise, CachedObservablePromise, InfiniteObservablePromise} = 
 ObservablePromise.configure({
     logger: {
         level: "verbose",
-        limitArrays: 2,
-        limitStrings: 3,
         withData: true
     },
 })
@@ -208,12 +206,18 @@ describe('ObservablePromise InfiniteObservablePromise resolve test', () => {
 describe('ObservablePromise persist test', () => {
     it('should return true', async () => {
         const persistStore = {};
-        let testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {name: 'testPromise', expiresIn: 1000});
+        let testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
+            name: 'testPromise',
+            expiresIn: 1000
+        });
         ObservablePromise.hydrate(persistStore, testPromise);
         await testPromise.execute(100).then(async result => {
 
             await new Promise(resolve => setTimeout(() => resolve(true), 100))
-            testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {name: 'testPromise', expiresIn: 1000});
+            testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
+                name: 'testPromise',
+                expiresIn: 1000
+            });
             ObservablePromise.hydrate(persistStore, testPromise);
             expect(testPromise.result).to.equal(true);
         });
@@ -254,3 +258,175 @@ describe('CachedObservablePromise persist test', () => {
         });
     });
 });
+
+
+describe('ObservablePromise concurrent test', () => {
+    it('with queued should return correct result', async () => {
+        const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)), {queued: true});
+        const testFn = (i) => {
+            let arg = Math.random().toString();
+            return testPromise.execute(randomIntFromInterval(1, 100), arg).then(result => {
+                expect(result).to.equal(arg);
+            });
+        }
+        let promises = []
+        for (let i = 0; i < 10; i++) {
+            promises.push(testFn(i));
+        }
+        await Promise.all(promises);
+    }, 30000);
+
+    it('without queued should return correct result', async () => {
+        const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)));
+        let firstArg;
+        const testFn = (i) => {
+            let arg = Math.random().toString();
+            if (i === 0)
+                firstArg = arg;
+            return testPromise.execute(randomIntFromInterval(1, 100), arg).then(result => {
+                expect(result).to.equal(firstArg);
+            });
+        }
+        let promises = []
+        for (let i = 0; i < 10; i++) {
+            promises.push(testFn(i));
+        }
+        await Promise.all(promises);
+    }, 30000);
+
+    it('cached with queued should return correct result', async () => {
+        let runCounts = {};
+        const testPromise = new CachedObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
+            runCounts['_' + arg] = (runCounts['_' + arg] || 0) + 1;
+            setTimeout(() => resolve(arg), waitMilliseconds);
+        }), {queued: true});
+        const testFn = async (i) => {
+            let arg = Math.random().toString();
+            const interval = randomIntFromInterval(1, 100)
+            await testPromise.execute(interval, arg).then(result => {
+                expect(result).to.equal(arg);
+                expect(runCounts['_' + arg]).to.equal(1);
+            });
+            await testPromise.execute(interval, arg).then(result => {
+                expect(result).to.equal(arg);
+                expect(runCounts['_' + arg]).to.equal(1);
+            });
+        }
+        let promises = []
+        for (let i = 0; i < 10; i++) {
+            promises.push(testFn(i));
+        }
+        await Promise.all(promises);
+    }, 30000);
+
+    it('cached without queued should return correct result', async () => {
+        let runCounts = {};
+        const testPromise = new CachedObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
+            runCounts['_' + arg] = (runCounts['_' + arg] || 0) + 1;
+            setTimeout(() => resolve(arg), waitMilliseconds);
+        }));
+        let firstArg;
+        const testFn = async (i) => {
+            let arg = Math.random().toString();
+            if (i === 0)
+                firstArg = arg;
+            const interval = randomIntFromInterval(1, 100)
+            await testPromise.execute(interval, arg).then(result => {
+                expect(result).to.equal(firstArg);
+                expect(runCounts['_' + firstArg]).to.equal(1);
+            });
+            await testPromise.execute(interval, arg).then(result => {
+                expect(result).to.equal(firstArg);
+                expect(runCounts['_' + firstArg]).to.equal(1);
+            });
+        }
+        let promises = []
+        for (let i = 0; i < 10; i++) {
+            promises.push(testFn(i));
+        }
+        await Promise.all(promises);
+    }, 30000);
+
+    it('infinite with queued should return correct result', async () => {
+        const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+        const testPromise = new InfiniteObservablePromise((waitMilliseconds, arg, offset, count) =>
+            new Promise(resolve => setTimeout(() => {
+                {
+                    resolve({
+                        offset,
+                        count,
+                        arg,
+                        items: items.slice(offset, offset + count)
+                    })
+                }
+                resolve(arg);
+            }, waitMilliseconds)), {
+            nextArgs: (result, [interval, arg, offset, count]) => [interval, arg, offset + count, count],
+            resolve: result => result.items
+        }, {queued: true});
+
+
+        let testFn = async (i) => {
+            let arg = Math.random().toString();
+            const interval = randomIntFromInterval(1, 100);
+            await testPromise.execute(interval, arg, 0, 3).promise;
+            expect(testPromise.resultArray).to.deep.equal([1, 2, 3]);
+        }
+        let promises = []
+        for (let i = 0; i < 10; i++) {
+            promises.push(testFn(i));
+        }
+        await Promise.all(promises);
+
+        testFn = async (i) => {
+
+            await testPromise.executeNext().promise;
+        }
+        promises = []
+        for (let i = 0; i < 10; i++) {
+            promises.push(testFn(i));
+        }
+        await Promise.all(promises);
+
+        expect(testPromise.resultArray).to.deep.equal(items);
+    }, 30000);
+
+    it('infinite without queued should return correct result', async () => {
+        const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+        const testPromise = new InfiniteObservablePromise((waitMilliseconds, arg, offset, count) =>
+            new Promise(resolve => setTimeout(() => {
+                {
+                    resolve({
+                        offset,
+                        count,
+                        items: items.slice(offset, offset + count)
+                    })
+                }
+                resolve(arg);
+            }, waitMilliseconds)), {
+            nextArgs: (result, [interval, arg, offset, count]) => [interval, arg, offset + count, count],
+            resolve: result => result.items
+        });
+
+        let arg = Math.random().toString();
+        const interval = randomIntFromInterval(1, 100);
+        await testPromise.execute(interval, arg, 0, 3).promise;
+        expect(testPromise.resultArray).to.deep.equal([1, 2, 3]);
+
+        const testFn = async (i) => {
+
+            await testPromise.executeNext().promise;
+        }
+        let promises = []
+        for (let i = 0; i < 10; i++) {
+            promises.push(testFn(i));
+        }
+        await Promise.all(promises);
+
+        expect(testPromise.resultArray).to.deep.equal([1, 2, 3, 4, 5, 6]);
+    }, 30000);
+});
+
+function randomIntFromInterval(min, max) { // min and max included
+    return Math.floor(Math.random() * (max - min + 1) + min)
+}

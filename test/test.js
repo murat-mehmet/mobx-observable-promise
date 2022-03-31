@@ -425,6 +425,52 @@ describe('ObservablePromise concurrent test', () => {
 
         expect(testPromise.resultArray).to.deep.equal([1, 2, 3, 4, 5, 6]);
     }, 30000);
+
+    it('with queued should throw on cancel', async () => {
+        const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)), {queued: true});
+        const testFn = (i) => {
+            let arg = Math.random().toString();
+            return testPromise.execute(randomIntFromInterval(1, 100), arg).then(result => {
+                expect(result).to.equal(arg);
+            }).catch(e => {
+                console.log(e.message);
+                expect(e.message).to.equal('ObservablePromise was reset while executing');
+            });
+        }
+        let promises = []
+        for (let i = 0; i < 10; i++) {
+            promises.push(testFn(i));
+        }
+        testPromise.reset().execute(1, 'test').then(result => {
+            expect(result).to.equal('test');
+        });
+        await Promise.all(promises);
+    }, 30000);
+
+    it('without queued should throw on cancel', async () => {
+        const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)));
+
+        let firstArg;
+        const testFn = (i) => {
+            let arg = Math.random().toString();
+            if (i === 0)
+                firstArg = arg;
+            return testPromise.execute(randomIntFromInterval(1, 100), arg).then(result => {
+                expect(result).to.equal(firstArg);
+            }).catch(e => {
+                console.log(e.message);
+                expect(e.message).to.equal('ObservablePromise was reset while executing');
+            });
+        }
+        let promises = []
+        for (let i = 0; i < 10; i++) {
+            promises.push(testFn(i));
+        }
+        testPromise.reset().execute(1, 'test').then(result => {
+            expect(result).to.equal(firstArg);
+        });
+        await Promise.all(promises);
+    }, 30000);
 });
 
 function randomIntFromInterval(min, max) { // min and max included

@@ -1,4 +1,5 @@
 import {action, computed, makeObservable, observable, runInAction} from "mobx";
+import {Mutex} from "./async-mutex";
 import {Logger, LoggerOptionsInput, LoggingLevel} from "./Logger";
 
 export type PromiseReturnType<T extends (...args: any) => any> = T extends (...args: any) => Promise<infer R> ? R : any;
@@ -15,7 +16,7 @@ export class ObservablePromise<T extends PromiseAction> {
     @observable isError = false;
     @observable wasExecuted = false;
     protected persistStore: {[key: string]: any};
-    protected _isWaitingForResponse = false;
+    protected _mutex = new Mutex();
     protected _currentCall = null;
     protected _action: T;
     protected _options: ObservablePromiseOptions<T> = {...ObservablePromise.defaultOptions};
@@ -277,51 +278,50 @@ export class ObservablePromise<T extends PromiseAction> {
     }
 
     execute(...callArgs: Parameters<T>) {
-        if (this._isWaitingForResponse) {
-            if (this._options.queued) {
-                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Added execution to queue`);
-                this._promise = this._promise.finally(() => this.execute(...callArgs));
-            } else {
+        if (this._mutex.isLocked()) {
+            if (!this._options.queued) {
                 this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution, an execution is already in progress`, {args: callArgs});
-            }
-            return this;
+                return this;
+            } else
+                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Added execution to queue`, {args: callArgs});
         }
-        this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution`, {args: callArgs});
 
-        runInAction(() => {
-            this.isExecuting = true;
-        });
+        this._promise = this._mutex.runExclusive(() => {
+            this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution`, {args: callArgs});
 
-        this._isWaitingForResponse = true;
-        this._currentCall = {args: callArgs, result: null};
+            runInAction(() => {
+                this.isExecuting = true;
+            });
 
-        this._promise = new Promise((resolve, reject) => {
-            this._action(...callArgs as any)
-                .then((result) => {
-                    if (result instanceof Error)
-                        this.handleError(result, reject);
-                    else {
-                        if (this._options.parser) {
-                            try {
-                                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Parsing result`, result);
-                                result = this._options.parser(result, callArgs);
-                            } catch (e) {
-                                result = e;
-                                this.logger.log(LoggingLevel.error, `(${this._options.name}) Could not parse result (${e})`);
+            this._currentCall = {args: callArgs, result: null};
+            this._promise = new Promise((resolve, reject) => {
+                this._action(...callArgs as any)
+                    .then((result) => {
+                        if (result instanceof Error)
+                            this.handleError(result, reject);
+                        else {
+                            if (this._options.parser) {
+                                try {
+                                    this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Parsing result`, result);
+                                    result = this._options.parser(result, callArgs);
+                                } catch (e) {
+                                    result = e;
+                                    this.logger.log(LoggingLevel.error, `(${this._options.name}) Could not parse result (${e})`);
+                                }
+                                if (result instanceof Error) {
+                                    this.handleError(result, reject);
+                                    return result;
+                                }
                             }
-                            if (result instanceof Error) {
-                                this.handleError(result, reject);
-                                return result;
-                            }
+
+                            this.handleSuccess(result, resolve);
                         }
-
-                        this.handleSuccess(result, resolve);
-                    }
-                    return result;
-                })
-                .catch((error) => {
-                    this.handleError(error, reject);
-                });
+                    })
+                    .catch((error) => {
+                        this.handleError(error, reject);
+                    });
+            });
+            return this._promise;
         });
 
         return this;
@@ -370,7 +370,8 @@ export class ObservablePromise<T extends PromiseAction> {
         this.isExecuting = false;
         this.isError = false;
         this.wasExecuted = false;
-        this._isWaitingForResponse = false;
+        if (this._mutex.isLocked())
+            this._mutex.cancel();
         this._promise = null;
         if (this.persistStore) {
             this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Saving to store`);
@@ -403,7 +404,6 @@ export class ObservablePromise<T extends PromiseAction> {
         this.isExecuting = false;
         this.isError = false;
         this.wasExecuted = true;
-        this._isWaitingForResponse = false;
         this.triggerHooks();
         resolve && resolve(this.result)
     }
@@ -415,7 +415,6 @@ export class ObservablePromise<T extends PromiseAction> {
         this.isExecuting = false;
         this.isError = true;
         this.wasExecuted = true;
-        this._isWaitingForResponse = false;
         this.triggerHooks();
         reject && reject(this.error);
     }

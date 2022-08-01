@@ -1,7 +1,7 @@
 import {action, computed, observable, runInAction} from "mobx";
 import {Mutex} from "./async-mutex";
 import {Logger, LoggerOptionsInput, LoggingLevel} from "./Logger";
-import { ResetError } from "./ResetError";
+import {ResetError} from "./ResetError";
 
 export type PromiseReturnType<T extends (...args: any) => any> = T extends (...args: any) => Promise<infer R> ? R : any;
 export type PromiseAction = (...args: any) => Promise<any>;
@@ -286,7 +286,7 @@ export class ObservablePromise<T extends PromiseAction> {
                 this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Added execution to queue`, {args: callArgs});
         }
 
-        this._promise = this._mutex.runExclusive(() => {
+        this._promise = this._mutex.runExclusive(() => new Promise((resolve, reject) => {
             this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution`, {args: callArgs});
 
             runInAction(() => {
@@ -294,35 +294,32 @@ export class ObservablePromise<T extends PromiseAction> {
             });
 
             this._currentCall = {args: callArgs, result: null};
-            this._promise = new Promise((resolve, reject) => {
-                this._action(...callArgs as any)
-                    .then((result) => {
-                        if (result instanceof Error)
-                            this.handleError(result, reject);
-                        else {
-                            if (this._options.parser) {
-                                try {
-                                    this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Parsing result`, result);
-                                    result = this._options.parser(result, callArgs);
-                                } catch (e) {
-                                    result = e;
-                                    this.logger.log(LoggingLevel.error, `(${this._options.name}) Could not parse result (${e})`);
-                                }
-                                if (result instanceof Error) {
-                                    this.handleError(result, reject);
-                                    return result;
-                                }
+            this._action(...callArgs as any)
+                .then((result) => {
+                    if (result instanceof Error)
+                        this.handleError(result, reject);
+                    else {
+                        if (this._options.parser) {
+                            try {
+                                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Parsing result`, result);
+                                result = this._options.parser(result, callArgs);
+                            } catch (e) {
+                                result = e;
+                                this.logger.log(LoggingLevel.error, `(${this._options.name}) Could not parse result (${e})`);
                             }
-
-                            this.handleSuccess(result, resolve);
+                            if (result instanceof Error) {
+                                this.handleError(result, reject);
+                                return result;
+                            }
                         }
-                    })
-                    .catch((error) => {
-                        this.handleError(error, reject);
-                    });
-            });
-            return this._promise;
-        });
+
+                        this.handleSuccess(result, resolve);
+                    }
+                })
+                .catch((error) => {
+                    this.handleError(error, reject);
+                });
+        }))
 
         return this;
     }

@@ -21,7 +21,7 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
                 this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Added execution to queue`, {args: callArgs});
         }
 
-        this._promise = this._mutex.runExclusive(() => {
+        this._promise = this._mutex.runExclusive(() => new Promise((resolve, reject) => {
             const existingApiCall = this._findApiCall(callArgs);
             if (!existingApiCall) {
                 this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution`, {args: callArgs});
@@ -30,46 +30,42 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
                 this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution, resolving cached result`);
                 this._currentCall = existingApiCall;
 
-                this.handleSuccess(existingApiCall.result, null, true);
-                this._promise = Promise.resolve(existingApiCall.result);
-                return this._promise;
+                return this.handleSuccess(existingApiCall.result, resolve, true);
             }
 
             runInAction(() => {
                 this.isExecuting = true;
             });
 
-            this._promise = new Promise((resolve, reject) => {
-                this._action(...callArgs as any)
-                    .then((result) => {
-                        if (result instanceof Error)
-                            this.handleError(result, reject);
-                        else {
-                            if (this._options.parser) {
-                                try {
-                                    this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Parsing result`, result);
-                                    result = this._options.parser(result, callArgs);
-                                } catch (e) {
-                                    result = e;
-                                    this.logger.log(LoggingLevel.error, `(${this._options.name}) Could not parse result (${e})`);
-                                }
-                                if (result instanceof Error) {
-                                    this.handleError(result, reject);
-                                    return result;
-                                }
+            this._action(...callArgs as any)
+                .then((result) => {
+                    if (result instanceof Error)
+                        this.handleError(result, reject);
+                    else {
+                        if (this._options.parser) {
+                            try {
+                                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Parsing result`, result);
+                                result = this._options.parser(result, callArgs);
+                            } catch (e) {
+                                result = e;
+                                this.logger.log(LoggingLevel.error, `(${this._options.name}) Could not parse result (${e})`);
                             }
-
-                            this.handleSuccess(result, resolve);
+                            if (result instanceof Error) {
+                                this.handleError(result, reject);
+                                return result;
+                            }
                         }
-                    })
-                    .catch((error) => {
-                        this.handleError(error, reject);
-                    });
-            });
-            return this._promise;
-        });
 
+                        this.handleSuccess(result, resolve);
+                    }
+                })
+                .catch((error) => {
+                    this.handleError(error, reject);
+                });
+
+        }));
         return this;
+
     }
 
     clear() {

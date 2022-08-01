@@ -1,4 +1,4 @@
-import { E_TIMEOUT } from './errors';
+import {E_TIMEOUT} from './errors';
 import MutexInterface from './MutexInterface';
 import SemaphoreInterface from './SemaphoreInterface';
 

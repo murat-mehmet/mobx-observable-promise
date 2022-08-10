@@ -94,7 +94,7 @@ describe('ObservablePromise registerHookOnce test', () => {
     it('should return true', async () => {
         let runCount = 0;
         const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
-        testPromise.registerHookOnce(() => runCount++);
+        testPromise.registerHookOnce(() => runCount++, 'runCountHook');
         await testPromise.queued().execute(500).execute(500).then(result => {
             expect(runCount).to.equal(1);
         });

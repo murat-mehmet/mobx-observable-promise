@@ -9,7 +9,7 @@ export type PromiseAction = (...args: any) => Promise<any>;
 export class ObservablePromise<T extends PromiseAction> {
     static logger = new Logger();
     private static defaultOptions: ObservablePromiseDefaultOptions = {};
-    private static hooks = [];
+    private static hooks: PromiseHook[] = [];
     logger = new Logger({...ObservablePromise.logger.opts});
     @observable result: PromiseReturnType<T> = null;
     @observable error = null;
@@ -21,7 +21,7 @@ export class ObservablePromise<T extends PromiseAction> {
     protected _currentCall = null;
     protected _action: T;
     protected _options: ObservablePromiseOptions<T> = {...ObservablePromise.defaultOptions};
-    private _instanceHooks = [];
+    private _instanceHooks: PromiseHook[] = [];
 
     constructor(action: T, options: ObservablePromiseOptions<T>)
     constructor(action: T, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
@@ -132,9 +132,10 @@ export class ObservablePromise<T extends PromiseAction> {
         }
     }
 
-    static registerHook(hook) {
-        ObservablePromise.hooks.push(hook);
-        this.logger.log(LoggingLevel.verbose, `(Global) Registered hook #${ObservablePromise.hooks.length}`);
+    static registerHook(hook: (promise: ObservablePromise<any>) => any, name?: string) {
+        name = name || getFuncName(hook, 'global_hook');
+        ObservablePromise.hooks.push({action: hook, name});
+        this.logger.log(LoggingLevel.verbose, `(Global) Registered hook [${name}]`);
     }
 
     static hydrate(persistStore: {[key: string]: any}, store: any)
@@ -214,26 +215,27 @@ export class ObservablePromise<T extends PromiseAction> {
         return selector(result);
     }
 
-    registerHook(hook: (promise: ObservablePromise<T>) => any) {
-        this._instanceHooks.push(hook);
-        this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Registered hook #${this._instanceHooks.length}`);
+    registerHook(hook: (promise: ObservablePromise<T>) => any, name?: string) {
+        name = name || getFuncName(hook, 'hook');
+        this._instanceHooks.push({action: hook, name});
+        this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Registered hook [${name}]`);
         return () => this.unregisterHook(hook);
     }
 
-    registerHookOnce(hook: (promise: ObservablePromise<T>) => any) {
+    registerHookOnce(hook: (promise: ObservablePromise<T>) => any, name?: string) {
         const onceHook = (promise) => {
             this.unregisterHook(onceHook);
             hook(promise);
         };
-        this.registerHook(onceHook);
+        this.registerHook(onceHook, name);
         return () => this.unregisterHook(onceHook);
     }
 
-    registerHookSuccess(hook: (promise: ObservablePromise<T>) => any) {
+    registerHookSuccess(hook: (promise: ObservablePromise<T>) => any, name?: string) {
         return this.registerHook((promise) => {
             if (this.wasSuccessful)
                 hook(promise)
-        })
+        }, name)
     }
 
     registerHookError(hook: (promise: ObservablePromise<T>) => any) {
@@ -243,38 +245,38 @@ export class ObservablePromise<T extends PromiseAction> {
         })
     }
 
-    chain(promise: ObservablePromise<T>) {
+    chain(promise: ObservablePromise<T>, name?: string) {
         return this.registerHook(() => {
             if (this.wasSuccessful)
                 promise.resolve(this.result);
             else if (this.isError)
                 promise.reject(this.error)
-        })
+        }, name)
     }
 
-    chainResolve(promise: ObservablePromise<T>) {
+    chainResolve(promise: ObservablePromise<T>, name?: string) {
         return this.registerHook(() => {
             if (this.wasSuccessful)
                 promise.resolve(this.result);
-        })
+        }, name)
     }
 
-    chainReject(promise: ObservablePromise<T>) {
+    chainReject(promise: ObservablePromise<T>, name?: string) {
         return this.registerHook(() => {
             if (this.isError)
                 promise.reject(this.error)
-        })
+        }, name)
     }
 
-    chainReload(promise: ObservablePromise<any>) {
+    chainReload(promise: ObservablePromise<any>, name?: string) {
         return this.registerHook(() => {
             if (this.wasSuccessful && promise.wasSuccessful)
                 promise.reload().catch();
-        })
+        }, name)
     }
 
     unregisterHook(hook: (promise: ObservablePromise<T>) => any) {
-        this._instanceHooks = this._instanceHooks.filter(h => h != hook);
+        this._instanceHooks = this._instanceHooks.filter(h => h.action != hook);
     }
 
     execute(...callArgs: Parameters<T>) {
@@ -425,15 +427,20 @@ export class ObservablePromise<T extends PromiseAction> {
     }
 
     private triggerHooks() {
-        this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Triggering ${this._instanceHooks.length} instance and ${ObservablePromise.hooks.length} global hooks`);
-        this._instanceHooks.forEach(hook => hook(this));
-        ObservablePromise.hooks.forEach(hook => hook(this));
+        this._instanceHooks.forEach(hook => {
+            this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Triggering instance hook [${hook.name}]`);
+            hook.action(this);
+        });
+        ObservablePromise.hooks.forEach(hook => {
+            this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Triggering global [${hook.name}]`);
+            hook.action(this);
+        });
     }
 }
 
-function getFuncName(func) {
+function getFuncName(func, defaultPrefix = 'func') {
     const result = /^function\s+([\w\$]+)\s*\(/.exec(func.toString())
-    return (result ? result[1] : 'func') + '_' + Math.random().toString(36).substring(7)
+    return (result ? result[1] : defaultPrefix) + '_' + Math.random().toString(36).substring(7)
 }
 
 export interface ObservablePromiseOptions<T extends PromiseAction> {
@@ -460,6 +467,11 @@ export interface PersistedObject {
     args: any[],
     data: any,
     expires?: number
+}
+
+export interface PromiseHook {
+    action: (promise: ObservablePromise<any>) => any,
+    name?: string
 }
 
 const sleep = (time) => new Promise((res) => setTimeout(res, time));

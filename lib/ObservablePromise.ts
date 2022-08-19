@@ -348,6 +348,12 @@ export class ObservablePromise<T extends PromiseAction> {
         return this._promise.catch(onRejected);
     }
 
+    withArgs(...callArgs: Parameters<T> | []) {
+        this.logger.log(LoggingLevel.verbose, `(${this._options.name} Settings args`, {args: callArgs});
+        this._currentCall = {args: callArgs, result: null};
+        return this;
+    }
+
     resolve(result: PromiseReturnType<T>) {
         this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Force resolving`);
         this.handleSuccess(result, null);
@@ -358,6 +364,9 @@ export class ObservablePromise<T extends PromiseAction> {
         this.handleError(error, null);
     }
 
+    /**
+     * @deprecated use options.queued in constructor
+     */
     queued(value = true) {
         this.logger.log(LoggingLevel.verbose, `(${this._options.name}) ${value ? 'Enabled' : 'Disabled'} queue`);
         this._options.queued = value;

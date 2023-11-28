@@ -100,6 +100,17 @@ describe('ObservablePromise registerHookOnce test', () => {
         });
     });
 });
+describe('ObservablePromise hook must be completed before then()', () => {
+    it('should return true', async () => {
+        let runCount = 0;
+        const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
+        testPromise.registerHook(() => runCount++, 'runCountHook');
+        testPromise.registerHook(() => runCount = 5, 'runCountHook2');
+        await testPromise.execute(500).then(result => {
+            expect(runCount).to.equal(5);
+        });
+    });
+});
 describe('CachedObservablePromise test', () => {
     it('should return true', async () => {
         let runCount = 0;
@@ -499,6 +510,15 @@ describe('ObservablePromise concurrent test', () => {
             expect(result).to.equal(firstArg);
         });
         await Promise.all(promises);
+    }, 30000);
+
+    it('with args reload', async () => {
+        const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)));
+
+        testPromise.withArgs(500, 'test').resolve('test');
+        expect(testPromise.result).to.equal('test');
+        await testPromise.reload();
+        expect(testPromise.result).to.equal('test');
     }, 30000);
 });
 

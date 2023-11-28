@@ -81,7 +81,9 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
     protected handleError(error, reject) {
         this._apiCalls = this._apiCalls.filter(h => h != this._currentCall);
         if (this.persistStore) {
-            const persistObject = this.persistStore[this._options.name];
+            let persistObject = this.persistStore[this._options.name];
+            if (!persistObject)
+                persistObject = {};
             this.persistResult(persistObject);
         }
         super.handleError(error, reject);

@@ -170,8 +170,9 @@ export class ObservablePromise<T extends PromiseAction> {
             if (persistObject.expires && persistObject.expires < Date.now())
                 delete persistStore[promise._options.name];
             else {
-                promise.result = persistObject.data;
-                if (persistObject.args)
+                if (persistObject.data != null)
+                    promise.result = persistObject.data;
+                if (persistObject.args != null)
                     promise._currentCall = {
                         args: persistObject.args,
                         result: promise.result
@@ -382,8 +383,13 @@ export class ObservablePromise<T extends PromiseAction> {
             this._mutex.cancel();
         if (this.persistStore) {
             this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Saving to store`);
-            if (this.persistStore[this._options.name])
-                delete this.persistStore[this._options.name];
+            let persistObject = this.persistStore[this._options.name];
+            if (persistObject) {
+                delete persistObject.data;
+                delete persistObject.args;
+            } else
+                persistObject = {};
+            this.persistResult(persistObject);
         }
 
         return this;

@@ -69,8 +69,14 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
     }
 
     clear() {
-        this._apiCalls = [];
         this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Cleared cache`);
+        this._apiCalls = [];
+        if (this.persistStore) {
+            let persistObject = this.persistStore[this._options.name];
+            if (!persistObject)
+                persistObject = {};
+            this.persistResult(persistObject);
+        }
     }
 
     clone(options?: ObservablePromiseOptions<T>) {

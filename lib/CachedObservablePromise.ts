@@ -1,5 +1,5 @@
 import isEqual from 'lodash.isequal';
-import {action, runInAction} from 'mobx';
+import {action, runInAction, toJS} from 'mobx';
 import {LoggingLevel} from "./Logger";
 import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
@@ -85,7 +85,7 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
 
     @action
     protected handleError(error, reject) {
-        this._apiCalls = this._apiCalls.filter(h => h != this._currentCall);
+        this._apiCalls = this._apiCalls.filter(h => !isEqual(h.args, this._currentCall.args));
         if (this.persistStore) {
             let persistObject = this.persistStore[this._options.name];
             if (!persistObject)
@@ -98,7 +98,8 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
     @action
     protected restoreResult(persistedObject: PersistedObject) {
         super.restoreResult(persistedObject);
-        this._apiCalls = persistedObject['apiCalls'];
+        if (persistedObject['apiCalls'] != null)
+            this._apiCalls = toJS(persistedObject['apiCalls']);
     }
 
     @action

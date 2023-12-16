@@ -1,4 +1,4 @@
-import {action, computed, observable, runInAction} from "mobx";
+import {action, computed, observable, runInAction, toJS} from "mobx";
 import {Mutex} from "./async-mutex";
 import {Logger, LoggerOptionsInput, LoggingLevel} from "./Logger";
 import {ResetError} from "./ResetError";
@@ -170,15 +170,7 @@ export class ObservablePromise<T extends PromiseAction> {
             if (persistObject.expires && persistObject.expires < Date.now())
                 delete persistStore[promise._options.name];
             else {
-                if (persistObject.data != null)
-                    promise.result = persistObject.data;
-                if (persistObject.args != null)
-                    promise._currentCall = {
-                        args: persistObject.args,
-                        result: promise.result
-                    }
                 promise.restoreResult(persistObject);
-                promise.wasExecuted = true;
             }
         }
     }
@@ -384,10 +376,7 @@ export class ObservablePromise<T extends PromiseAction> {
         if (this.persistStore) {
             this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Saving to store`);
             let persistObject = this.persistStore[this._options.name];
-            if (persistObject) {
-                delete persistObject.data;
-                delete persistObject.args;
-            } else
+            if (!persistObject)
                 persistObject = {};
             this.persistResult(persistObject);
         }
@@ -434,11 +423,28 @@ export class ObservablePromise<T extends PromiseAction> {
 
     @action
     protected persistResult(persistedObject: PersistedObject) {
+        if (this.wasSuccessful) {
+            persistedObject.args = this._currentCall ? this._currentCall.args : null;
+            persistedObject.data = this.result;
+        }
+        if (this._options.expiresIn)
+            persistedObject.expires = Date.now() + this._options.expiresIn;
         this.persistStore[this._options.name] = persistedObject;
     }
 
     @action
     protected restoreResult(persistedObject: PersistedObject) {
+        if (persistedObject.data != null) {
+            this.result = toJS(persistedObject.data);
+            this.wasExecuted = true;
+        }
+        if (persistedObject.args != null)
+            this._currentCall = {
+                args: toJS(persistedObject.args),
+                result: this.result
+            }
+        if (persistedObject.expires != null && persistedObject.expires < Date.now())
+            this.reset();
     }
 
     private triggerHooks() {

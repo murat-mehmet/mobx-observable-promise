@@ -37,7 +37,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
             }
         }
 
-        this._promise = this._mutex.runExclusive(() => {
+        this._promise = this._mutex.runExclusive(() => new Promise((resolve, reject) => {
             this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution (${isFirst ? 'initial' : 'next'})`, {args: callArgs});
 
             if (!isFirst && callArgs.length == 0)
@@ -48,40 +48,38 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
             });
 
             this._currentCall = {args: callArgs, result: null};
-            this._promise = new Promise((resolve, reject) => {
-                this._action(...callArgs as any)
-                    .then((result) => {
-                        if (result instanceof Error)
-                            this.handleError(result, reject);
-                        else {
-                            if (this._options.parser) {
-                                try {
-                                    this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Parsing result`, result);
-                                    result = this._options.parser(result, callArgs) as any;
-                                } catch (e) {
-                                    result = e
-                                    this.logger.log(LoggingLevel.error, `(${this._options.name}) Could not parse result (${e})`);
-                                }
-                                if (result instanceof Error) {
-                                    this.handleError(result, reject);
-                                    return result;
-                                }
+            this._action(...callArgs as any)
+                .then((result) => {
+                    if (result instanceof Error)
+                        this.handleError(result, reject);
+                    else {
+                        if (this._options.parser) {
+                            try {
+                                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Parsing result`, result);
+                                result = this._options.parser(result, callArgs) as any;
+                            } catch (e) {
+                                result = e
+                                this.logger.log(LoggingLevel.error, `(${this._options.name}) Could not parse result (${e})`);
                             }
-                            runInAction(() => {
-                                if (isFirst)
-                                    this.resultArray = null;
-                                this.handleSuccess(result, resolve);
-                            });
+                            if (result instanceof Error) {
+                                this.handleError(result, reject);
+                                return result;
+                            }
                         }
-                    })
-                    .catch((error) => {
-                        this.handleError(error, reject);
-                    });
-            });
-            return this._promise;
-        });
+                        runInAction(() => {
+                            if (isFirst)
+                                this.resultArray = null;
+                            this.handleSuccess(result, resolve);
+                        });
+                    }
+                })
+                .catch((error) => {
+                    this.handleError(error, reject);
+                });
 
+        }));
         return this;
+
     }
 
     getList(defaultValue?: (PromiseReturnType<T> | (() => PromiseReturnType<T>))): PromiseReturnType<T> {

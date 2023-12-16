@@ -94,9 +94,20 @@ describe('ObservablePromise registerHookOnce test', () => {
     it('should return true', async () => {
         let runCount = 0;
         const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
-        testPromise.registerHookOnce(() => runCount++);
+        testPromise.registerHookOnce(() => runCount++, 'runCountHook');
         await testPromise.queued().execute(500).execute(500).then(result => {
             expect(runCount).to.equal(1);
+        });
+    });
+});
+describe('ObservablePromise hook must be completed before then()', () => {
+    it('should return true', async () => {
+        let runCount = 0;
+        const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
+        testPromise.registerHook(() => runCount++, 'runCountHook');
+        testPromise.registerHook(() => runCount = 5, 'runCountHook2');
+        await testPromise.execute(500).then(result => {
+            expect(runCount).to.equal(5);
         });
     });
 });
@@ -319,6 +330,35 @@ describe('ObservablePromise concurrent test', () => {
         await Promise.all(promises);
     }, 30000);
 
+    it('cached with expiresIn with queued should return correct result', async () => {
+        let runCount = 0;
+        const testPromise = new CachedObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
+            runCount++;
+            setTimeout(() => resolve(arg), waitMilliseconds);
+        }), {queued: true, expiresIn: 500});
+        let expected = 1;
+        setTimeout(() => {
+            expected = 2;
+        }, 500);
+        let arg = Math.random().toString();
+        const testFn = async (i) => {
+            const interval = 250;
+            await testPromise.execute(interval, arg).then(result => {
+                expect(result).to.equal(arg);
+                expect(runCount).to.equal(expected);
+            });
+            await testPromise.execute(interval, arg).then(result => {
+                expect(result).to.equal(arg);
+                expect(runCount).to.equal(expected);
+            });
+        }
+        let promises = []
+        for (let i = 0; i < 4; i++) {
+            promises.push(testFn(i));
+        }
+        await Promise.all(promises);
+    }, 30000);
+
     it('cached without queued should return correct result', async () => {
         let runCounts = {};
         const testPromise = new CachedObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
@@ -470,6 +510,15 @@ describe('ObservablePromise concurrent test', () => {
             expect(result).to.equal(firstArg);
         });
         await Promise.all(promises);
+    }, 30000);
+
+    it('with args reload', async () => {
+        const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)));
+
+        testPromise.withArgs(500, 'test').resolve('test');
+        expect(testPromise.result).to.equal('test');
+        await testPromise.reload();
+        expect(testPromise.result).to.equal('test');
     }, 30000);
 });
 

@@ -1,4 +1,4 @@
-import { E_CANCELED } from './errors';
+import {E_CANCELED} from './errors';
 import SemaphoreInterface from './SemaphoreInterface';
 
 interface QueueEntry {
@@ -22,7 +22,7 @@ class Semaphore implements SemaphoreInterface {
     acquire(): Promise<[number, SemaphoreInterface.Releaser]> {
         const locked = this.isLocked();
         const ticketPromise = new Promise<[number, SemaphoreInterface.Releaser]>((resolve, reject) =>
-            this._queue.push({ resolve, reject })
+            this._queue.push({resolve, reject})
         );
 
         if (!locked) this._dispatch();
@@ -45,7 +45,7 @@ class Semaphore implements SemaphoreInterface {
             return Promise.resolve();
         }
 
-        const waitPromise = new Promise<void>((resolve) => this._waiters.push({ resolve }));
+        const waitPromise = new Promise<void>((resolve) => this._waiters.push({resolve}));
 
         return waitPromise;
     }

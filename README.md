@@ -42,7 +42,7 @@ export class App extends Component {
     render() {
         return (
             <div>
-                {this.productsCall.getResultOrDefault([]).map(product =>
+                {this.productsCall.getResult([]).map(product =>
                     <p key={product.id}>
                         {product.name}
                     </p>
@@ -170,11 +170,11 @@ Executes the actual promise which was given in constructor as action parameter. 
 myApiRequest.execute('some-keyword');
 ```
 
-#### `getResultOrDefault(default)`
+#### `getResult(default)`
 If the promise was executed successfully, returns the result field, else returns `default` parameter of this function
 ##### Example
 ```js
-const list = promise.getResultOrDefault([]);
+const list = promise.getResult([]);
 // which is same as
 let list;
 if (promise.wasSuccessful)
@@ -182,11 +182,11 @@ if (promise.wasSuccessful)
 else
     list = [];
 ```
-#### `getResultOrDefault(selector, default)`
+#### `getResult(selector, default)`
 If the promise was executed successfully, returns the result field using the selector function, else returns `default` parameter of this function
 ##### Example
 ```js
-const list = promise.getResultOrDefault(result => result.data, []);
+const list = promise.getResult(result => result.data, []);
 // which is same as
 let list;
 if (promise.wasSuccessful)

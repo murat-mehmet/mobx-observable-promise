@@ -52,12 +52,18 @@ export class FetchPromise<TResult> extends ObservablePromise<PromiseFetchAction<
 
 interface Headers {
     append(name: string, value: string): void;
+
     delete(name: string): void;
+
     get(name: string): string | null;
+
     has(name: string): boolean;
+
     set(name: string, value: string): void;
+
     forEach(callbackfn: (value: string, key: string, parent: Headers) => void, thisArg?: any): void;
 }
+
 type HeadersInit_ = Headers | string[][] | {[key: string]: string};
 type RequestCredentials_ = 'omit' | 'same-origin' | 'include';
 type RequestMode_ = 'navigate' | 'same-origin' | 'no-cors' | 'cors';

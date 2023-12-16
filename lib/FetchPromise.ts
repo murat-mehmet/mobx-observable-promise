@@ -50,35 +50,26 @@ export class FetchPromise<TResult> extends ObservablePromise<PromiseFetchAction<
     }
 }
 
-interface _SourceUri {
-    uri: string;
+interface Headers {
+    append(name: string, value: string): void;
 
-    [key: string]: any;
+    delete(name: string): void;
+
+    get(name: string): string | null;
+
+    has(name: string): boolean;
+
+    set(name: string, value: string): void;
+
+    forEach(callbackfn: (value: string, key: string, parent: Headers) => void, thisArg?: any): void;
 }
 
-type BodyInit_ =
-    | _SourceUri
-    | Blob
-    | Int8Array
-    | Int16Array
-    | Int32Array
-    | Uint8Array
-    | Uint16Array
-    | Uint32Array
-    | Uint8ClampedArray
-    | Float32Array
-    | Float64Array
-    | DataView
-    | ArrayBuffer
-    | FormData
-    | string
-    | null;
 type HeadersInit_ = Headers | string[][] | {[key: string]: string};
 type RequestCredentials_ = 'omit' | 'same-origin' | 'include';
 type RequestMode_ = 'navigate' | 'same-origin' | 'no-cors' | 'cors';
 
 export interface FetchRequestInit {
-    body?: BodyInit_;
+    body?: any;
     credentials?: RequestCredentials_;
     headers?: HeadersInit_;
     integrity?: string;

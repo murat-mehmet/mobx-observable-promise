@@ -1,6 +1,6 @@
 {
   "name": "mobx-observable-promise",
-  "version": "0.5.16",
+  "version": "0.5.29",
   "description": "Observable promise implementation for mobx stores",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -27,7 +27,7 @@
   "devDependencies": {
     "chai": "^4.2.0",
     "mobx": "^6.1.8",
-    "mocha": "^7.0.0",
+    "mocha": "^10.2.0",
     "typescript": "^3.9.7"
   },
   "dependencies": {

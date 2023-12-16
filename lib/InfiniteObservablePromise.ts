@@ -24,29 +24,30 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
     }
 
     executeNext(...callArgs) {
-        return this._executeInternal(callArgs.length > 0 ? callArgs : this._resolver.nextArgs(this.result, this.args), false);
+        return this._executeInternal(callArgs, false);
     }
 
     _executeInternal(callArgs, isFirst: boolean) {
-        if (this._isWaitingForResponse) {
-            if (this._options.queued) {
-                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Added execution to queue`);
-                this._promise = this._promise.finally(() => this.execute(...callArgs));
+        if (this._mutex.isLocked()) {
+            if (!this._options.queued) {
+                this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution (${isFirst ? 'initial' : 'next'}), an execution is already in progress`, {args: callArgs});
+                return this;
             } else {
-                this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution, an execution is already in progress`, {args: callArgs});
+                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Added execution (${isFirst ? 'initial' : 'next'}) to queue`, {args: callArgs});
             }
-            return this;
         }
-        this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution (${isFirst ? 'initial' : 'subsequent'})`, {args: callArgs});
 
-        runInAction(() => {
-            this.isExecuting = true;
-        });
+        this._promise = this._mutex.runExclusive(() => new Promise((resolve, reject) => {
+            this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution (${isFirst ? 'initial' : 'next'})`, {args: callArgs});
 
-        this._isWaitingForResponse = true;
-        this._currentCall = {args: callArgs, result: null};
+            if (!isFirst && callArgs.length == 0)
+                callArgs = this._resolver.nextArgs(this.result, this.args);
 
-        this._promise = new Promise((resolve, reject) => {
+            runInAction(() => {
+                this.isExecuting = true;
+            });
+
+            this._currentCall = {args: callArgs, result: null};
             this._action(...callArgs as any)
                 .then((result) => {
                     if (result instanceof Error)
@@ -71,14 +72,14 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
                             this.handleSuccess(result, resolve);
                         });
                     }
-                    return result;
                 })
                 .catch((error) => {
                     this.handleError(error, reject);
                 });
-        });
 
+        }));
         return this;
+
     }
 
     getList(defaultValue?: (PromiseReturnType<T> | (() => PromiseReturnType<T>))): PromiseReturnType<T> {

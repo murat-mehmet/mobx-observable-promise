@@ -14,35 +14,30 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
     }
 
     execute(...callArgs: Parameters<T>) {
-        if (this._isWaitingForResponse) {
-            if (this._options.queued) {
-                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Added execution to queue`);
-                this._promise = this._promise.finally(() => this.execute(...callArgs));
-            } else {
+        if (this._mutex.isLocked()) {
+            if (!this._options.queued) {
                 this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution, an execution is already in progress`, {args: callArgs});
+                return this;
+            } else
+                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Added execution to queue`, {args: callArgs});
+        }
+
+        this._promise = this._mutex.runExclusive(() => new Promise((resolve, reject) => {
+            const existingApiCall = this._findApiCall(callArgs);
+            if (!existingApiCall) {
+                this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution`, {args: callArgs});
+                this._currentCall = this._addApiCall(callArgs);
+            } else {
+                this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution, resolving cached result`);
+                this._currentCall = existingApiCall;
+
+                return this.handleSuccess(existingApiCall.result, resolve, true);
             }
-            return this;
-        }
 
-        const existingApiCall = this._findApiCall(callArgs);
-        if (!existingApiCall) {
-            this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution`, {args: callArgs});
-            this._currentCall = this._addApiCall(callArgs);
-        } else {
-            this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution, resolving cached result`);
-            this._currentCall = existingApiCall;
+            runInAction(() => {
+                this.isExecuting = true;
+            });
 
-            this.handleSuccess(existingApiCall.result, null, true);
-            this._promise = Promise.resolve(existingApiCall.result);
-            return this;
-        }
-
-        runInAction(() => {
-            this.isExecuting = true;
-        });
-
-        this._isWaitingForResponse = true;
-        this._promise = new Promise((resolve, reject) => {
             this._action(...callArgs as any)
                 .then((result) => {
                     if (result instanceof Error)
@@ -64,19 +59,25 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
 
                         this.handleSuccess(result, resolve);
                     }
-                    return result;
                 })
                 .catch((error) => {
                     this.handleError(error, reject);
                 });
-        });
 
+        }));
         return this;
+
     }
 
     clear() {
-        this._apiCalls = [];
         this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Cleared cache`);
+        this._apiCalls = [];
+        if (this.persistStore) {
+            let persistObject = this.persistStore[this._options.name];
+            if (!persistObject)
+                persistObject = {};
+            this.persistResult(persistObject);
+        }
     }
 
     clone(options?: ObservablePromiseOptions<T>) {
@@ -87,7 +88,9 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
     protected handleError(error, reject) {
         this._apiCalls = this._apiCalls.filter(h => h != this._currentCall);
         if (this.persistStore) {
-            const persistObject = this.persistStore[this._options.name];
+            let persistObject = this.persistStore[this._options.name];
+            if (!persistObject)
+                persistObject = {};
             this.persistResult(persistObject);
         }
         super.handleError(error, reject);

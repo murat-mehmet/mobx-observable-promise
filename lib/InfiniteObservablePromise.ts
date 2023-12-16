@@ -98,10 +98,9 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
     }
 
     @override reset() {
-        super.reset();
         this.hasMore = true;
         this.resultArray = null;
-        return this;
+        return super.reset();
     }
 
     clone(options?: ObservablePromiseOptions<T>) {

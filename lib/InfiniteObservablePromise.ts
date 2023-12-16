@@ -1,4 +1,4 @@
-import {makeObservable, observable, override, runInAction} from "mobx";
+import {makeObservable, observable, override, runInAction, toJS} from "mobx";
 import {LoggingLevel} from "./Logger";
 import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
@@ -142,12 +142,14 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
     @override
     protected restoreResult(persistedObject: PersistedObject) {
         super.restoreResult(persistedObject);
-        this.resultArray = persistedObject['resultArray'];
-        this.hasMore = persistedObject['hasMore'];
-        if (persistedObject['totalItems'])
-            this.totalItems = persistedObject['totalItems'];
-        if (persistedObject['totalPages'])
-            this.totalPages = persistedObject['totalPages'];
+        if (persistedObject['resultArray'] != null)
+            this.resultArray = toJS(persistedObject['resultArray']);
+        if (persistedObject['hasMore'] != null)
+            this.hasMore = toJS(persistedObject['hasMore']);
+        if (persistedObject['totalItems'] != null)
+            this.totalItems = toJS(persistedObject['totalItems']);
+        if (persistedObject['totalPages'] != null)
+            this.totalPages = toJS(persistedObject['totalPages']);
     }
 
     @override

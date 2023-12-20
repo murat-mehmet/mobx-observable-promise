@@ -98,9 +98,12 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
 
     @override
     protected restoreResult(persistedObject: PersistedObject) {
-        super.restoreResult(persistedObject);
+        const didRestore = super.restoreResult(persistedObject);
+        if (!didRestore)
+            return false;
         if (persistedObject['apiCalls'] != null)
             this._apiCalls = toJS(persistedObject['apiCalls']);
+        return true;
     }
 
     @override

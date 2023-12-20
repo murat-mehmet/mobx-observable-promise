@@ -139,7 +139,9 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
 
     @action
     protected restoreResult(persistedObject: PersistedObject) {
-        super.restoreResult(persistedObject);
+        const didRestore = super.restoreResult(persistedObject);
+        if (!didRestore)
+            return false;
         if (persistedObject['resultArray'] != null)
             this.resultArray = toJS(persistedObject['resultArray']);
         if (persistedObject['hasMore'] != null)
@@ -148,16 +150,24 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
             this.totalItems = toJS(persistedObject['totalItems']);
         if (persistedObject['totalPages'] != null)
             this.totalPages = toJS(persistedObject['totalPages']);
+        return true;
     }
 
     @action
     protected persistResult(persistedObject: PersistedObject) {
-        persistedObject['resultArray'] = this.resultArray;
-        persistedObject['hasMore'] = this.hasMore;
-        if (this.totalItems)
-            persistedObject['totalItems'] = this.totalItems;
-        if (this.totalPages)
-            persistedObject['totalPages'] = this.totalPages;
+        if (this.wasSuccessful) {
+            persistedObject['resultArray'] = this.resultArray;
+            persistedObject['hasMore'] = this.hasMore;
+            if (this.totalItems)
+                persistedObject['totalItems'] = this.totalItems;
+            if (this.totalPages)
+                persistedObject['totalPages'] = this.totalPages;
+        } else {
+            delete persistedObject['resultArray'];
+            delete persistedObject['hasMore'];
+            delete persistedObject['totalItems'];
+            delete persistedObject['totalPages'];
+        }
         super.persistResult(persistedObject);
     }
 }

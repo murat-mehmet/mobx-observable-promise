@@ -426,6 +426,9 @@ export class ObservablePromise<T extends PromiseAction> {
         if (this.wasSuccessful) {
             persistedObject.args = this._currentCall ? this._currentCall.args : null;
             persistedObject.data = this.result;
+        } else {
+            delete persistedObject.args;
+            delete persistedObject.data;
         }
         if (this._options.expiresIn)
             persistedObject.expires = Date.now() + this._options.expiresIn;
@@ -434,6 +437,10 @@ export class ObservablePromise<T extends PromiseAction> {
 
     @action
     protected restoreResult(persistedObject: PersistedObject) {
+        if (persistedObject.expires != null && persistedObject.expires < Date.now()) {
+            this.reset();
+            return false;
+        }
         if (persistedObject.data != null) {
             this.result = toJS(persistedObject.data);
             this.wasExecuted = true;
@@ -443,8 +450,7 @@ export class ObservablePromise<T extends PromiseAction> {
                 args: toJS(persistedObject.args),
                 result: this.result
             }
-        if (persistedObject.expires != null && persistedObject.expires < Date.now())
-            this.reset();
+        return true;
     }
 
     private triggerHooks() {

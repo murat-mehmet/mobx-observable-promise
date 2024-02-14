@@ -340,6 +340,11 @@ export class ObservablePromise<T extends PromiseAction> {
         return this._promise.catch(onRejected);
     }
 
+    finally(onFinally: () => void) {
+        if (!this._promise) throw new Error('You have to run an execution before you can access it as promise');
+        return this._promise.finally(onFinally);
+    }
+
     withArgs(...callArgs: Parameters<T> | []) {
         this.logger.log(LoggingLevel.verbose, `(${this._options.name} Settings args`, {args: callArgs});
         this._currentCall = {args: callArgs, result: null};

@@ -112,6 +112,10 @@ export class CachedObservablePromise<T extends PromiseAction> extends Observable
         super.persistResult(persistedObject);
     }
 
+    isCached(...callArgs: Parameters<T>){
+        return !!this._findApiCall(callArgs);
+    }
+
     private _addApiCall(args) {
         const newCall = {args, result: null};
         if (this._options.expiresIn)

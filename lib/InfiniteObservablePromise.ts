@@ -43,11 +43,11 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
             if (!isFirst && callArgs.length == 0)
                 callArgs = this._resolver.nextArgs(this.result, this.args);
 
+            this._currentCall = {args: callArgs, result: null};
             runInAction(() => {
                 this.isExecuting = true;
             });
 
-            this._currentCall = {args: callArgs, result: null};
             this._action(...callArgs as any)
                 .then((result) => {
                     if (result instanceof Error)

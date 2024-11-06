@@ -285,11 +285,11 @@ export class ObservablePromise<T extends PromiseAction> {
         this._promise = this._mutex.runExclusive(() => new Promise((resolve, reject) => {
             this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution`, {args: callArgs});
 
+            this._currentCall = {args: callArgs, result: null};
             runInAction(() => {
                 this.isExecuting = true;
             });
 
-            this._currentCall = {args: callArgs, result: null};
             this._action(...callArgs as any)
                 .then((result) => {
                     if (result instanceof Error)

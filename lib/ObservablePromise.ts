@@ -376,6 +376,7 @@ export class ObservablePromise<T extends PromiseAction> {
         this.result = null;
         this.isExecuting = false;
         this.isError = false;
+        this.error = null;
         this.wasExecuted = false;
         if (this._mutex.isLocked())
             this._mutex.cancel();

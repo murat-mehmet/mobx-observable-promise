@@ -10,6 +10,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
     @observable totalPages = 0;
 
     private readonly _resolver: PageResolver;
+    private _firstCallArgs = null;
 
     constructor(action: T, resolver: PageResolver, options: ObservablePromiseOptions<T>)
     constructor(action: T, resolver: PageResolver, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
@@ -38,12 +39,35 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         }
 
         this._promise = this._mutex.runExclusive(() => new Promise((resolve, reject) => {
-            this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution (${isFirst ? 'initial' : 'next'})`, {args: callArgs});
 
             if (!isFirst && callArgs.length == 0)
                 callArgs = this._resolver.nextArgs(this.result, this.args);
 
-            this._currentCall = {args: callArgs, result: null};
+            if (isFirst){
+                this._firstCallArgs = callArgs;
+            }
+
+            // cache only first page
+            if (isFirst && this._options.cached) {
+                const existingApiCall = this._findCachedApiCall(callArgs);
+                if (!existingApiCall) {
+                    this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution`, {args: callArgs});
+                    this._currentCall = this._addCachedApiCall(callArgs);
+                } else {
+                    this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution, resolving cached result`);
+                    this._currentCall = existingApiCall;
+
+                    runInAction(() => {
+                        if (isFirst)
+                            this.resultArray = null;
+                        this.handleSuccess(existingApiCall.result, resolve, true);
+                    });
+                    return;
+                }
+            } else {
+                this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution (${isFirst ? 'initial' : 'next'})`, {args: callArgs});
+                this._currentCall = {args: callArgs, result: null};
+            }
             runInAction(() => {
                 this.isExecuting = true;
             });
@@ -97,6 +121,15 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         return this.getList(def);
     }
 
+    reload() {
+        if (!this._firstCallArgs) {
+            this.logger.log(LoggingLevel.error, `(${this._options.name}) Cannot reload non-executed promise`);
+            return this;
+        }
+        this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Re-executing with first parameters`, {args: this._firstCallArgs});
+        return this.execute(...this._firstCallArgs);
+    }
+
     @override reset() {
         this.hasMore = true;
         this.resultArray = null;
@@ -143,6 +176,8 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         const didRestore = super.restoreResult(persistedObject);
         if (!didRestore)
             return false;
+        if (persistedObject['firstArgs'] != null)
+            this._firstCallArgs = toJS(persistedObject['firstArgs']);
         if (persistedObject['resultArray'] != null)
             this.resultArray = toJS(persistedObject['resultArray']);
         if (persistedObject['hasMore'] != null)
@@ -157,6 +192,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
     @override
     protected persistResult(persistedObject: PersistedObject) {
         if (this.wasSuccessful) {
+            persistedObject['firstArgs'] = this._firstCallArgs;
             persistedObject['resultArray'] = this.resultArray;
             persistedObject['hasMore'] = this.hasMore;
             if (this.totalItems)
@@ -164,6 +200,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
             if (this.totalPages)
                 persistedObject['totalPages'] = this.totalPages;
         } else {
+            delete persistedObject['firstArgs'];
             delete persistedObject['resultArray'];
             delete persistedObject['hasMore'];
             delete persistedObject['totalItems'];

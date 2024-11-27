@@ -1,3 +1,4 @@
+import isEqual from 'lodash.isequal';
 import {action, computed, makeObservable, observable, runInAction, toJS} from "mobx";
 import {Mutex} from "./async-mutex";
 import {Logger, LoggerOptionsInput, LoggingLevel} from "./Logger";
@@ -22,6 +23,7 @@ export class ObservablePromise<T extends PromiseAction> {
     protected _action: T;
     protected _options: ObservablePromiseOptions<T> = {...ObservablePromise.defaultOptions};
     private _instanceHooks: PromiseHook[] = [];
+    private _apiCalls = [];
 
     constructor(action: T, options: ObservablePromiseOptions<T>)
     constructor(action: T, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
@@ -283,9 +285,22 @@ export class ObservablePromise<T extends PromiseAction> {
         }
 
         this._promise = this._mutex.runExclusive(() => new Promise((resolve, reject) => {
-            this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution`, {args: callArgs});
+            if (this._options.cached) {
+                const existingApiCall = this._findCachedApiCall(callArgs);
+                if (!existingApiCall) {
+                    this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution`, {args: callArgs});
+                    this._currentCall = this._addCachedApiCall(callArgs);
+                } else {
+                    this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution, resolving cached result`);
+                    this._currentCall = existingApiCall;
 
-            this._currentCall = {args: callArgs, result: null};
+                    return this.handleSuccess(existingApiCall.result, resolve, true);
+                }
+            } else {
+                this.logger.log(LoggingLevel.info, `(${this._options.name}) Begin execution`, {args: callArgs});
+                this._currentCall = {args: callArgs, result: null};
+            }
+
             runInAction(() => {
                 this.isExecuting = true;
             });
@@ -400,6 +415,9 @@ export class ObservablePromise<T extends PromiseAction> {
         this.logger.log(LoggingLevel.info, `(${this._options.name}) Execution was successful`, result);
         this.result = result;
         if (this._currentCall) this._currentCall.result = result;
+        this.isExecuting = false;
+        this.isError = false;
+        this.wasExecuted = true;
         if (!skipPersist && this.persistStore) {
             this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Saving result to store`);
             const persistObject: PersistedObject = {
@@ -410,15 +428,21 @@ export class ObservablePromise<T extends PromiseAction> {
                 persistObject.expires = Date.now() + this._options.expiresIn;
             this.persistResult(persistObject);
         }
-        this.isExecuting = false;
-        this.isError = false;
-        this.wasExecuted = true;
         this.triggerHooks();
         resolve && resolve(this.result)
     }
 
     @action
     protected handleError(error, reject) {
+        if (this._options.cached) {
+            this._apiCalls = this._apiCalls.filter(h => !isEqual(h.args, this._currentCall.args));
+            if (this.persistStore) {
+                let persistObject = this.persistStore[this._options.name];
+                if (!persistObject)
+                    persistObject = {};
+                this.persistResult(persistObject);
+            }
+        }
         this.logger.log(LoggingLevel.error, `(${this._options.name}) Execution resulted with error (${error})`);
         this.error = error;
         this.isExecuting = false;
@@ -430,6 +454,9 @@ export class ObservablePromise<T extends PromiseAction> {
 
     @action
     protected persistResult(persistedObject: PersistedObject) {
+        if (this._options.cached) {
+            persistedObject['apiCalls'] = this._apiCalls.filter(x => !x.expires || x.expires > Date.now());
+        }
         if (this.wasSuccessful) {
             persistedObject.args = this._currentCall ? this._currentCall.args : null;
             persistedObject.data = this.result;
@@ -457,6 +484,10 @@ export class ObservablePromise<T extends PromiseAction> {
                 args: toJS(persistedObject.args),
                 result: this.result
             }
+        if (this._options.cached) {
+            if (persistedObject['apiCalls'] != null)
+                this._apiCalls = toJS(persistedObject['apiCalls']);
+        }
         return true;
     }
 
@@ -469,6 +500,44 @@ export class ObservablePromise<T extends PromiseAction> {
             this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Triggering global [${hook.name}]`);
             hook.action(this);
         });
+    }
+
+    /**
+     * Clears all cache
+     */
+    resetCache(): this
+    /**
+     * Clears cache for given args
+     * @param callArgs
+     */
+    resetCache(...callArgs: Parameters<T>): this
+    resetCache(...callArgs: Parameters<T>) {
+        this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Cleared cache`);
+        this._apiCalls = !callArgs?.length ? []
+            : this._apiCalls.filter(c => !isEqual(c.args, callArgs));
+        if (this.persistStore) {
+            let persistObject = this.persistStore[this._options.name];
+            if (!persistObject)
+                persistObject = {};
+            this.persistResult(persistObject);
+        }
+        return this;
+    }
+
+    isCached(...callArgs: Parameters<T>) {
+        return this._apiCalls.some(c => isEqual(c.args, callArgs) && (!c.expires || c.expires > Date.now()));
+    }
+
+    protected _addCachedApiCall(args) {
+        const newCall = {args, result: null};
+        if (this._options.expiresIn)
+            newCall['expires'] = Date.now() + this._options.expiresIn;
+        this._apiCalls.push(newCall);
+        return newCall;
+    }
+
+    protected _findCachedApiCall(args) {
+        return this._apiCalls.find(c => isEqual(c.args, args) && (!c.expires || c.expires > Date.now()));
     }
 }
 
@@ -487,6 +556,7 @@ export interface ObservablePromiseOptions<T extends PromiseAction> {
     timeoutMessage?: string;
     expiresIn?: number;
     logger?: Partial<LoggerOptionsInput>
+    cached?: boolean;
 }
 
 export interface ObservablePromiseDefaultOptions {

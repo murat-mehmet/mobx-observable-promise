@@ -3,6 +3,9 @@ import {CachedObservablePromise} from "./CachedObservablePromise";
 import {Methods, PromiseMethod} from "./CallPromise";
 import {ObservablePromiseOptions, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 
+/**
+ * @deprecated Use CallPromise with `cached` option
+ */
 export class CachedCallPromise<T, M extends keyof Methods<T>> extends CachedObservablePromise<PromiseMethod<T, M>> {
     constructor(api: T, method: M, options: ObservablePromiseOptions<PromiseMethod<T, M>>)
     constructor(api: T, method: M, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T[M] extends PromiseAction ? (...callArgs: Parameters<T[M]>) => T[M] : never>, name?: string)

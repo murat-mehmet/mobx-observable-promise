@@ -234,11 +234,11 @@ export class ObservablePromise<T extends PromiseAction> {
         }, name)
     }
 
-    registerHookError(hook: (promise: ObservablePromise<T>) => any) {
+    registerHookError(hook: (promise: ObservablePromise<T>) => any, name?: string) {
         return this.registerHook((promise) => {
             if (this.isError)
                 hook(promise)
-        })
+        }, name)
     }
 
     chain(promise: ObservablePromise<T>, name?: string) {

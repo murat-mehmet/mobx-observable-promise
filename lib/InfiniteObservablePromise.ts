@@ -133,6 +133,8 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
     @override reset() {
         this.hasMore = true;
         this.resultArray = null;
+        this.totalItems = 0;
+        this.totalPages = 0;
         return super.reset();
     }
 

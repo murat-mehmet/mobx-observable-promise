@@ -1,7 +1,5 @@
 export * from './ObservablePromise'
-export * from './CachedObservablePromise'
 export * from './CallPromise'
-export * from './CachedCallPromise'
 export * from './InfiniteObservablePromise'
 export * from './InfiniteCallPromise'
 export * from './FetchPromise'

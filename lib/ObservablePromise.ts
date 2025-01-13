@@ -25,76 +25,69 @@ export class ObservablePromise<T extends PromiseAction> {
     private _instanceHooks: PromiseHook[] = [];
     private _apiCalls = [];
 
-    constructor(action: T, options: ObservablePromiseOptions<T>)
-    constructor(action: T, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
-    constructor(action: T, parserOrOptions?: ObservablePromiseOptions<T> | ((result: any, callArgs: any[]) => PromiseReturnType<T>), name?: string) {
+    constructor(action: T, options?: ObservablePromiseOptions<T>) {
         makeObservable(this);
         this._action = action;
-        if (typeof parserOrOptions == 'object') {
-            if (parserOrOptions) {
-                const {logger: loggerOptions, ...parserOptions} = parserOrOptions;
-                if (loggerOptions)
-                    this.logger.setOptions(loggerOptions);
-                this._options = Object.assign(this._options, parserOptions);
-            }
-            if (!this._options.name)
-                this._options.name = name || getFuncName(action);
+        if (options) {
+            const {logger: loggerOptions, ...parserOptions} = options;
+            if (loggerOptions)
+                this.logger.setOptions(loggerOptions);
+            this._options = Object.assign(this._options, parserOptions);
+        }
+        if (!this._options.name)
+            this._options.name = getFuncName(action);
 
-            if (this._options.delay) {
-                let action = this._action;
-                this._action = ((...args) => {
-                    this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Delay enabled, sleeping ${this._options.delay}ms`);
-                    return sleep(this._options.delay).then(() => action(...args))
-                }) as any;
-            }
-            if (this._options.fill) {
-                let action = this._action;
-                this._action = ((...args) => {
-                    const start = Date.now();
-                    return new Promise((res, rej) => action(...args).then(r => {
-                        if (Date.now() - start < this._options.fill) {
-                            const timeToSleep = this._options.fill - (Date.now() - start);
-                            this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Fill enabled, sleeping ${timeToSleep}ms`);
-                            sleep(timeToSleep).then(() => res(r));
-                        } else
+        if (this._options.delay) {
+            let action = this._action;
+            this._action = ((...args) => {
+                this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Delay enabled, sleeping ${this._options.delay}ms`);
+                return sleep(this._options.delay).then(() => action(...args))
+            }) as any;
+        }
+        if (this._options.fill) {
+            let action = this._action;
+            this._action = ((...args) => {
+                const start = Date.now();
+                return new Promise((res, rej) => action(...args).then(r => {
+                    if (Date.now() - start < this._options.fill) {
+                        const timeToSleep = this._options.fill - (Date.now() - start);
+                        this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Fill enabled, sleeping ${timeToSleep}ms`);
+                        sleep(timeToSleep).then(() => res(r));
+                    } else
+                        res(r);
+                }).catch(e => {
+                    if (Date.now() - start < this._options.fill) {
+                        const timeToSleep = this._options.fill - (Date.now() - start);
+                        this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Fill enabled, sleeping ${timeToSleep}ms`);
+                        sleep(timeToSleep).then(() => rej(e));
+                    } else
+                        rej(e);
+                }))
+            }) as any;
+        }
+        if (this._options.timeout) {
+            let action = this._action;
+            this._action = ((...args) => {
+                return new Promise((res, rej) => {
+                    let timedOut = false;
+                    const timer = setTimeout(() => {
+                        timedOut = true;
+                        this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Timeout enabled, throwing error`);
+                        rej(new Error(this._options.timeoutMessage || 'Action timeout'));
+                    }, this._options.timeout);
+                    action(...args).then(r => {
+                        if (!timedOut) {
+                            clearTimeout(timer);
                             res(r);
+                        }
                     }).catch(e => {
-                        if (Date.now() - start < this._options.fill) {
-                            const timeToSleep = this._options.fill - (Date.now() - start);
-                            this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Fill enabled, sleeping ${timeToSleep}ms`);
-                            sleep(timeToSleep).then(() => rej(e));
-                        } else
+                        if (!timedOut) {
+                            clearTimeout(timer);
                             rej(e);
-                    }))
-                }) as any;
-            }
-            if (this._options.timeout) {
-                let action = this._action;
-                this._action = ((...args) => {
-                    return new Promise((res, rej) => {
-                        let timedOut = false;
-                        const timer = setTimeout(() => {
-                            timedOut = true;
-                            this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Timeout enabled, throwing error`);
-                            rej(new Error(this._options.timeoutMessage || 'Action timeout'));
-                        }, this._options.timeout);
-                        action(...args).then(r => {
-                            if (!timedOut) {
-                                clearTimeout(timer);
-                                res(r);
-                            }
-                        }).catch(e => {
-                            if (!timedOut) {
-                                clearTimeout(timer);
-                                rej(e);
-                            }
-                        })
+                        }
                     })
-                }) as any;
-            }
-        } else {
-            this._options.parser = parserOrOptions;
-            this._options.name = name || getFuncName(action);
+                })
+            }) as any;
         }
     }
 
@@ -104,7 +97,7 @@ export class ObservablePromise<T extends PromiseAction> {
         return this._promise;
     }
 
-    get args() {
+    get args(): Parameters<T> {
         return this._currentCall
             ? this._currentCall.args
             : [];
@@ -112,13 +105,6 @@ export class ObservablePromise<T extends PromiseAction> {
 
     @computed get isExecutingFirstTime() {
         return !this.wasExecuted && this.isExecuting;
-    }
-
-    /**
-     * @deprecated use {@link wasSuccessful}
-     */
-    @computed get wasExecutedSuccessfully() {
-        return this.wasSuccessful;
     }
 
     @computed get wasSuccessful() {
@@ -178,23 +164,6 @@ export class ObservablePromise<T extends PromiseAction> {
         }
     }
 
-    /**
-     * @deprecated Use {@link getResult} and {@link getResultOf}
-     * @param def
-     */
-    getResultOrDefault(def?: PromiseReturnType<T>): PromiseReturnType<T>;
-
-    getResultOrDefault<R>(selector: (result: PromiseReturnType<T>) => R, def: R): R;
-
-    getResultOrDefault(...args) {
-        if (args.length <= 1) {
-            return this.getResult(args[0]);
-        } else {
-            return this.getResultOf(args[0], args[1]);
-        }
-    }
-
-
     getResult(defaultValue?: (PromiseReturnType<T> | (() => PromiseReturnType<T>))): PromiseReturnType<T> {
         const {result} = this;
         if (!this.wasSuccessful)
@@ -241,7 +210,7 @@ export class ObservablePromise<T extends PromiseAction> {
         }, name)
     }
 
-    chain(promise: ObservablePromise<T>, name?: string) {
+    chain(promise: ObservablePromise<any>, name?: string) {
         return this.registerHook(() => {
             if (this.wasSuccessful)
                 promise.resolve(this.result);
@@ -250,14 +219,14 @@ export class ObservablePromise<T extends PromiseAction> {
         }, name)
     }
 
-    chainResolve(promise: ObservablePromise<T>, name?: string) {
+    chainResolve(promise: ObservablePromise<any>, name?: string) {
         return this.registerHook(() => {
             if (this.wasSuccessful)
                 promise.resolve(this.result);
         }, name)
     }
 
-    chainReject(promise: ObservablePromise<T>, name?: string) {
+    chainReject(promise: ObservablePromise<any>, name?: string) {
         return this.registerHook(() => {
             if (this.isError)
                 promise.reject(this.error)
@@ -273,6 +242,10 @@ export class ObservablePromise<T extends PromiseAction> {
 
     unregisterHook(hook: (promise: ObservablePromise<T>) => any) {
         this._instanceHooks = this._instanceHooks.filter(h => h.action != hook);
+    }
+
+    wasExecutedWith(...callArgs: Parameters<T>): boolean {
+        return isEqual(this.args, callArgs);
     }
 
     execute(...callArgs: Parameters<T>) {
@@ -344,6 +317,9 @@ export class ObservablePromise<T extends PromiseAction> {
         return this.execute(...this._currentCall.args);
     }
 
+    /**
+     * @deprecated will be removed, use reload
+     */
     retry = () => this.reload();
 
     then<TThen>(onResolved?: (value: PromiseReturnType<T>) => TThen) {
@@ -393,6 +369,7 @@ export class ObservablePromise<T extends PromiseAction> {
         this.isError = false;
         this.error = null;
         this.wasExecuted = false;
+        this._currentCall = null;
         if (this._mutex.isLocked())
             this._mutex.cancel();
         if (this.persistStore) {

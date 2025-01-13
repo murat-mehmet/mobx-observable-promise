@@ -1,6 +1,6 @@
 const {reaction, toJS} = require("mobx");
 const expect = require('chai').expect;
-const {ObservablePromise, CachedObservablePromise, InfiniteObservablePromise} = require('../dist/index.js');
+const {ObservablePromise, InfiniteObservablePromise} = require('../dist/index.js');
 ObservablePromise.configure({
   logger: {
     level: "verbose",
@@ -11,7 +11,7 @@ ObservablePromise.configure({
 describe('ObservablePromise test', () => {
   it('should return true', async () => {
     const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
-    testPromise.getResultOrDefault()
+    testPromise.getResult()
     await testPromise.execute(500).then(result => {
       expect(result).to.equal(true);
     });
@@ -28,7 +28,7 @@ describe('ObservablePromise limitStrings test', () => {
         limitStrings: 2
       }
     });
-    testPromise.getResultOrDefault()
+    testPromise.getResult()
     await testPromise.execute(500).then(result => {
       expect(result.test).to.deep.equal({
           test2: '123456'
@@ -117,10 +117,10 @@ describe('ObservablePromise hook must be completed before then()', () => {
 describe('CachedObservablePromise test', () => {
   it('should return true', async () => {
     let runCount = 0;
-    const testPromise = new CachedObservablePromise((waitMilliseconds) => new Promise(resolve => {
+    const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => {
       runCount++;
       setTimeout(() => resolve(true), waitMilliseconds);
-    }));
+    }), {cached: true});
     await testPromise.execute(500).then(result => {
       expect(result).to.equal(true);
       expect(runCount).to.equal(1);
@@ -142,7 +142,7 @@ describe('InfiniteObservablePromise test', () => {
         items: items.slice(offset, offset + count)
       }
     }, {
-      nextArgs: (result, [offset, count]) => [offset + count, count],
+      nextArgs: (result, [offset, count], next) => next(offset + count, count),
       resolve: result => result.items
     });
 
@@ -164,7 +164,7 @@ describe('InfiniteObservablePromise cache test', () => {
         items: items.slice(offset, offset + count)
       }
     }, {
-      nextArgs: (result, [offset, count]) => [offset + count, count],
+      nextArgs: (result, [offset, count], next) => next(offset + count, count),
       resolve: result => result.items
     });
 
@@ -186,7 +186,7 @@ describe('InfiniteObservablePromise resultArray reaction test', () => {
         items: items.slice(offset, offset + count)
       }
     }, {
-      nextArgs: (result, [offset, count]) => [offset + count, count],
+      nextArgs: (result, [offset, count], next) => next(offset + count, count),
       resolve: result => result.items
     });
 
@@ -229,7 +229,7 @@ describe('ObservablePromise InfiniteObservablePromise resolve test', () => {
         items: items.slice(offset, offset + count)
       }
     }, {
-      nextArgs: (result, [offset, count]) => [offset + count, count],
+      nextArgs: (result, [offset, count], next) => next(offset + count, count),
       resolve: result => result.items
     });
     //execute obs
@@ -266,10 +266,10 @@ describe('CachedObservablePromise persist test', () => {
   it('should return true', async () => {
     let runCount = 0;
     const persistStore = {};
-    let testPromise = new CachedObservablePromise((waitMilliseconds) => new Promise(resolve => {
+    let testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => {
       runCount++;
       setTimeout(() => resolve(true), waitMilliseconds);
-    }), {name: 'testPromise', expiresIn: 500});
+    }), {name: 'testPromise', expiresIn: 500, cached: true});
     ObservablePromise.hydrate(persistStore, testPromise);
     await testPromise.execute(50).then(result => {
       expect(result).to.equal(true);
@@ -282,10 +282,10 @@ describe('CachedObservablePromise persist test', () => {
 
 
       await new Promise(resolve => setTimeout(() => resolve(true), 300))
-      testPromise = new CachedObservablePromise((waitMilliseconds) => new Promise(resolve => {
+      testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => {
         runCount++;
         setTimeout(() => resolve(true), waitMilliseconds);
-      }), {name: 'testPromise', expiresIn: 500});
+      }), {name: 'testPromise', expiresIn: 500, cached: true});
       ObservablePromise.hydrate(persistStore, testPromise);
       expect(testPromise.result).to.equal(true);
       await testPromise.execute(100).then(result => {
@@ -333,10 +333,10 @@ describe('ObservablePromise concurrent test', () => {
 
   it('cached with queued should return correct result', async () => {
     let runCounts = {};
-    const testPromise = new CachedObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
+    const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
       runCounts['_' + arg] = (runCounts['_' + arg] || 0) + 1;
       setTimeout(() => resolve(arg), waitMilliseconds);
-    }), {queued: true});
+    }), {queued: true, cached: true});
     const testFn = async (i) => {
       let arg = Math.random().toString();
       const interval = randomIntFromInterval(1, 100)
@@ -358,10 +358,10 @@ describe('ObservablePromise concurrent test', () => {
 
   it('cached with expiresIn with queued should return correct result', async () => {
     let runCount = 0;
-    const testPromise = new CachedObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
+    const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
       runCount++;
       setTimeout(() => resolve(arg), waitMilliseconds);
-    }), {queued: true, expiresIn: 500});
+    }), {queued: true, expiresIn: 500, cached: true});
     let expected = 1;
     setTimeout(() => {
       expected = 2;
@@ -387,10 +387,10 @@ describe('ObservablePromise concurrent test', () => {
 
   it('cached without queued should return correct result', async () => {
     let runCounts = {};
-    const testPromise = new CachedObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
+    const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
       runCounts['_' + arg] = (runCounts['_' + arg] || 0) + 1;
       setTimeout(() => resolve(arg), waitMilliseconds);
-    }));
+    }), {cached: true});
     let firstArg;
     const testFn = async (i) => {
       let arg = Math.random().toString();
@@ -427,7 +427,7 @@ describe('ObservablePromise concurrent test', () => {
         }
         resolve(arg);
       }, waitMilliseconds)), {
-      nextArgs: (result, [interval, arg, offset, count]) => [interval, arg, offset + count, count],
+      nextArgs: (result, [interval, arg, offset, count], next) => next(interval, arg, offset + count, count),
       resolve: result => result.items
     }, {queued: true});
 
@@ -470,7 +470,7 @@ describe('ObservablePromise concurrent test', () => {
         }
         resolve(arg);
       }, waitMilliseconds)), {
-      nextArgs: (result, [interval, arg, offset, count]) => [interval, arg, offset + count, count],
+      nextArgs: (result, [interval, arg, offset, count], next) => next(interval, arg, offset + count, count),
       resolve: result => result.items
     });
 

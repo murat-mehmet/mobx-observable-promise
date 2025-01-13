@@ -1,13 +1,13 @@
 {
   "name": "mobx-observable-promise",
-  "version": "0.5.42",
+  "version": "0.6.5",
   "description": "Observable promise implementation for mobx stores",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "mocha --reporter spec",
-    "prepublish": "npm run build"
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",

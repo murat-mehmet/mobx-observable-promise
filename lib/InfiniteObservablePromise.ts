@@ -1,34 +1,37 @@
 import {makeObservable, observable, override, runInAction, toJS} from "mobx";
 import {LoggingLevel} from "./Logger";
 import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction, PromiseReturnType} from "./ObservablePromise";
+import isEqual from 'lodash.isequal';
 
-export class InfiniteObservablePromise<T extends PromiseAction> extends ObservablePromise<T> {
+export class InfiniteObservablePromise<T extends PromiseAction, TItem> extends ObservablePromise<T> {
 
-    @observable resultArray: PromiseReturnType<T> = null;
+    @observable resultArray: TItem[] = null;
     @observable hasMore = true;
     @observable totalItems = 0;
     @observable totalPages = 0;
 
-    private readonly _resolver: PageResolver;
+    private readonly _resolver: PageResolver<T, TItem>;
     private _firstCallArgs = null;
 
-    constructor(action: T, resolver: PageResolver, options: ObservablePromiseOptions<T>)
-    constructor(action: T, resolver: PageResolver, parser?: (result: any, callArgs: any[]) => PromiseReturnType<T>, name?: string)
-    constructor(action: T, resolver: PageResolver, parserOrOptions?: ObservablePromiseOptions<T> | ((result: any, callArgs: any[]) => PromiseReturnType<T>), name?: string) {
-        super(action, parserOrOptions as any, name);
+    constructor(action: T, resolver: PageResolver<T, TItem>, options?: ObservablePromiseOptions<T>) {
+        super(action, options);
         makeObservable(this);
         this._resolver = resolver;
+    }
+
+    wasExecutedFirstWith(...callArgs: Parameters<T>): boolean {
+        return isEqual(this._firstCallArgs, callArgs);
     }
 
     execute(...callArgs: Parameters<T>) {
         return this._executeInternal(callArgs, true);
     }
 
-    executeNext(...callArgs) {
+    executeNext(...callArgs: Parameters<T> | []) {
         return this._executeInternal(callArgs, false);
     }
 
-    _executeInternal(callArgs, isFirst: boolean) {
+    _executeInternal(callArgs: Array<unknown>, isFirst: boolean) {
         if (this._mutex.isLocked()) {
             if (!this._options.queued) {
                 this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution (${isFirst ? 'initial' : 'next'}), an execution is already in progress`, {args: callArgs});
@@ -40,10 +43,20 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
 
         this._promise = this._mutex.runExclusive(() => new Promise((resolve, reject) => {
 
-            if (!isFirst && callArgs.length == 0)
-                callArgs = this._resolver.nextArgs(this.result, this.args);
+            if (!isFirst && callArgs.length == 0) {
+                let didCall = false;
+                const nextFn = (...args: Parameters<T>) => {
+                    callArgs = args;
+                    didCall = true;
+                }
+                this._resolver.nextArgs(this.result, this.args, nextFn);
+                if (!didCall) {
+                    this.handleError(new Error('You must call next() in PageResolver#nextArgs'), reject)
+                    return this;
+                }
+            }
 
-            if (isFirst){
+            if (isFirst) {
                 this._firstCallArgs = callArgs;
             }
 
@@ -72,7 +85,7 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
                 this.isExecuting = true;
             });
 
-            this._action(...callArgs as any)
+            this._action(...callArgs)
                 .then((result) => {
                     if (result instanceof Error)
                         this.handleError(result, reject);
@@ -106,19 +119,11 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
 
     }
 
-    getList(defaultValue?: (PromiseReturnType<T> | (() => PromiseReturnType<T>))): PromiseReturnType<T> {
+    getList(defaultValueOrFactory?: (TItem[] | (() => TItem[]))): TItem[] {
         const {resultArray} = this;
         if (!this.wasSuccessful)
-            return (typeof defaultValue == 'function' ? (defaultValue as any)() : defaultValue) || [];
+            return (typeof defaultValueOrFactory == 'function' ? (defaultValueOrFactory as any)() : defaultValueOrFactory) || [];
         return resultArray;
-    }
-
-    /**
-     * @deprecated Use {@link getList} and {@link getResultOf}
-     * @param def
-     */
-    getResultArrayOrDefault(def?: PromiseReturnType<T>): PromiseReturnType<T> {
-        return this.getList(def);
     }
 
     reload() {
@@ -135,11 +140,12 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
         this.resultArray = null;
         this.totalItems = 0;
         this.totalPages = 0;
+        this._firstCallArgs = null;
         return super.reset();
     }
 
     clone(options?: ObservablePromiseOptions<T>) {
-        return new InfiniteObservablePromise<T>(this._action, this._resolver, {...this._options, ...options});
+        return new InfiniteObservablePromise<T, TItem>(this._action, this._resolver, {...this._options, ...options});
     }
 
     resolve(result: any) {
@@ -212,10 +218,25 @@ export class InfiniteObservablePromise<T extends PromiseAction> extends Observab
     }
 }
 
-export interface PageResolver {
-    resolve: (result: any, callArgs: any[]) => any[],
-    nextArgs: (result: any, callArgs: any[]) => any[],
-    hasMore?: (result: any, callArgs: any[]) => boolean,
-    totalCount?: (result: any) => number,
-    totalPages?: (result: any) => number,
+/**
+ * Example standalone page resolver function:
+ *
+ * ```
+ * type PagedResponse<TItem> = {items: TItem[]};
+ * type ResolverPromise<TItem> = (page: number) => Promise<PagedResponse<TItem>>
+ *
+ * function getResolver<TItem>(): PageResolver<ResolverPromise<TItem>, TItem> {
+ *     return {
+ *         resolve: (res, args) => res.items,
+ *         nextArgs: (res, args, next) => next(...args)
+ *     }
+ * }
+ * ```
+ */
+export interface PageResolver<T extends PromiseAction = any, TItem = any> {
+    resolve: (result: PromiseReturnType<T>, callArgs: Parameters<T>) => TItem[],
+    nextArgs: (result: PromiseReturnType<T>, previousArgs: Parameters<T>, next: (...args: Parameters<T>) => void) => void,
+    hasMore?: (result: PromiseReturnType<T>, callArgs: Parameters<T>) => boolean,
+    totalCount?: (result: PromiseReturnType<T>) => number,
+    totalPages?: (result: PromiseReturnType<T>) => number,
 }

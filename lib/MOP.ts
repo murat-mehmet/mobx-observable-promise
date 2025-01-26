@@ -6,40 +6,37 @@ import {ObservablePromise, ObservablePromiseOptions, PromiseAction} from "./Obse
 
 export function MOP<T extends PromiseAction>(action: T, options?: ObservablePromiseOptions<T>): ObservablePromise<T>
 export function MOP<T, M extends keyof Methods<T>>(object: T, method: M, options?: ObservablePromiseOptions<PromiseMethod<T, M>>): CallPromise<T, M>
-export function MOP<T extends PromiseAction, TItem>(action: T, options: {
-    resolver: PageResolver<T, TItem>
-} & ObservablePromiseOptions<T>): InfiniteObservablePromise<T, TItem>
-export function MOP<T, M extends keyof Methods<T>, TItem>(object: T, method: M, options: {
-    resolver: PageResolver<PromiseMethod<T, M>, TItem>
-} & ObservablePromiseOptions<PromiseMethod<T, M>>): InfiniteCallPromise<T, M, TItem>
-export function MOP<TResult>(request?: {
-    url: string,
-    options?: FetchRequestInit
-}, options?: ObservablePromiseOptions<PromiseFetchAction<TResult>>): FetchPromise<TResult>
 export function MOP(...args: [PromiseAction, object?] | [object, string, object?] | [object?, object?]): any {
     if (typeof args[0] === 'function') {
-        // action promise type
-        const actionArgs = args as [PromiseAction, object?];
-        if (actionArgs[1] && 'resolver' in actionArgs[1]) {
-            const {resolver, ...options} = actionArgs[1];
-            return new InfiniteObservablePromise(actionArgs[0], resolver as any, options);
-        } else {
-            return new ObservablePromise(actionArgs[0], actionArgs[1]);
-        }
+        // @ts-ignore
+        return new ObservablePromise(...args);
     } else {
-        if (!args[0] || (typeof args[1] !== 'string')) {
-            return new FetchPromise(args[0] as any, args[1] as any)
-        }
-        // call promise type
-        const actionArgs = args as [object, string, object?];
-        if (actionArgs[2] && 'resolver' in actionArgs[2]) {
-            const {resolver, ...options} = actionArgs[2];
-            return new InfiniteCallPromise(actionArgs[0], actionArgs[1] as never, resolver as any, options);
-        } else {
-            return new CallPromise(actionArgs[0], actionArgs[1] as never)
-        }
+        // @ts-ignore
+        return new CallPromise(...args)
     }
 }
+
+function infinite<T extends PromiseAction, TItem>(action: T, resolver: PageResolver<T, TItem>, options: ObservablePromiseOptions<T>): InfiniteObservablePromise<T, TItem>
+function infinite<T, M extends keyof Methods<T>, TItem>(object: T, method: M, resolver: PageResolver<PromiseMethod<T, M>, TItem>, options: ObservablePromiseOptions<PromiseMethod<T, M>>): InfiniteCallPromise<T, M, TItem>
+function infinite(...args: [PromiseAction, object, object?] | [object, string, object, object?]): any {
+    if (typeof args[0] === 'function') {
+        // @ts-ignore
+        return new InfiniteObservablePromise(...args);
+    } else {
+        // @ts-ignore
+        return new InfiniteCallPromise(...args);
+    }
+}
+
+function fetch<TResult>(request?: {
+    url: string,
+    options?: FetchRequestInit
+}, options?: ObservablePromiseOptions<PromiseFetchAction<TResult>>): FetchPromise<TResult> {
+    return new FetchPromise(request, options);
+}
+
+MOP.infinite = infinite;
+MOP.fetch = fetch;
 
 MOP.configure = ObservablePromise.configure.bind(ObservablePromise) as typeof ObservablePromise.configure;
 MOP.registerHook = ObservablePromise.registerHook.bind(ObservablePromise) as typeof ObservablePromise.registerHook;

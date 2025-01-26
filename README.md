@@ -374,14 +374,12 @@ const fetchData = async (page: number) => {
 };
 
 // Create an InfiniteObservablePromise instance
-const fetchCall = MOP(fetchData, {
-    resolver: {
-        resolve: (result) => result.items, // Extract items from the response
-        nextArgs: (result, prevArgs, next) => next(prevArgs[0] + 1), // Get next page number
-        hasMore: (result) => result.hasMore, // Optional, check if there are more items to fetch
-        totalCount: (result) => result.totalCount, // Optional, total number of items
-        totalPages: (result) => result.totalPages, // Optional, total number of pages
-    }
+const fetchCall = MOP.infinite(fetchData, {
+    resolve: (result) => result.items, // Extract items from the response
+    nextArgs: (result, prevArgs, next) => next(prevArgs[0] + 1), // Get next page number
+    hasMore: (result) => result.hasMore, // Optional, check if there are more items to fetch
+    totalCount: (result) => result.totalCount, // Optional, total number of items
+    totalPages: (result) => result.totalPages, // Optional, total number of pages
 }); // or new InfiniteObservablePromise(fetchData, resolver)
 
 // Execute the promise to fetch the first page
@@ -406,18 +404,17 @@ const apiService = {
 };
 
 // Create an InfiniteCallPromise instance
-const infiniteCallPromise = MOP(apiService, "fetchPageData", pageResolver, {
+const infiniteCallPromise = MOP.infinite(apiService, "fetchPageData", {
+    resolve: (result) => result.items, // Resolves the items from the API response
+    nextArgs: (result, previousArgs, next) => {
+        const nextPage = previousArgs[0] + 1;
+        next(nextPage); // Passes the next page number to fetch
+    },
+    hasMore: (result) => result.hasMore, // Checks if more data is available
+    totalCount: (result) => result.totalCount, // Total number of items
+    totalPages: (result) => result.totalPages, // Total number of pages
+}, {
     name: "Fetch Paginated Data", // Optional name for the observable promise
-    resolver: {
-        resolve: (result) => result.items, // Resolves the items from the API response
-        nextArgs: (result, previousArgs, next) => {
-            const nextPage = previousArgs[0] + 1;
-            next(nextPage); // Passes the next page number to fetch
-        },
-        hasMore: (result) => result.hasMore, // Checks if more data is available
-        totalCount: (result) => result.totalCount, // Total number of items
-        totalPages: (result) => result.totalPages, // Total number of pages
-    }
 }); // or new InfiniteCallPromise(apiService, "fetchPageData", resolver, options)
 
 ```
@@ -474,7 +471,7 @@ responses, and managing the request state.
 import MOP from "mobx-observable-promise";
 
 // Create an instance of FetchPromise
-const fetchPromise = MOP({
+const fetchPromise = MOP.fetch({
     url: "https://api.example.com/data",
     options: {
         method: "GET",
@@ -500,7 +497,7 @@ You can also send `form-encoded` or `json` data by setting the `form` or `json` 
 or JSON string.
 
 ```typescript jsx
-const fetchPromise = new FetchPromise({
+const fetchPromise = MOP.fetch({
     url: "https://api.example.com/submit",
     options: {
         method: "POST",

@@ -567,7 +567,8 @@ Global hooks are called after every execution of every created promise, can be u
 MOP.registerHook(promise => {
     // do something 
 });
-```~~~~
+```
+
 ## Test
 
 ```sh

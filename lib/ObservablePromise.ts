@@ -15,7 +15,7 @@ export class ObservablePromise<T extends PromiseAction> {
     @observable result: PromiseReturnType<T> = null;
     @observable error = null;
     @observable isExecuting = false;
-    @observable isError = false;
+    @observable hasError = false;
     @observable wasExecuted = false;
     protected persistStore: {[key: string]: any};
     protected _mutex = new Mutex(new ResetError());
@@ -103,12 +103,19 @@ export class ObservablePromise<T extends PromiseAction> {
             : [];
     }
 
+    /**
+     * @deprecated will be removed, use hasError
+     */
+    @computed get isError() {
+        return this.hasError;
+    }
+
     @computed get isExecutingFirstTime() {
         return !this.wasExecuted && this.isExecuting;
     }
 
     @computed get wasSuccessful() {
-        return this.wasExecuted && !this.isError;
+        return this.wasExecuted && !this.hasError;
     }
 
     static configure(parameters: {logger?: Partial<LoggerOptionsInput>} & ObservablePromiseDefaultOptions) {
@@ -205,7 +212,7 @@ export class ObservablePromise<T extends PromiseAction> {
 
     registerHookError(hook: (promise: ObservablePromise<T>) => any, name?: string) {
         return this.registerHook((promise) => {
-            if (this.isError)
+            if (this.hasError)
                 hook(promise)
         }, name)
     }
@@ -214,7 +221,7 @@ export class ObservablePromise<T extends PromiseAction> {
         return this.registerHook(() => {
             if (this.wasSuccessful)
                 promise.resolve(this.result);
-            else if (this.isError)
+            else if (this.hasError)
                 promise.reject(this.error)
         }, name)
     }
@@ -228,7 +235,7 @@ export class ObservablePromise<T extends PromiseAction> {
 
     chainReject(promise: ObservablePromise<any>, name?: string) {
         return this.registerHook(() => {
-            if (this.isError)
+            if (this.hasError)
                 promise.reject(this.error)
         }, name)
     }
@@ -353,20 +360,11 @@ export class ObservablePromise<T extends PromiseAction> {
         this.handleError(error, null);
     }
 
-    /**
-     * @deprecated use options.queued in constructor
-     */
-    queued(value = true) {
-        this.logger.log(LoggingLevel.verbose, `(${this._options.name}) ${value ? 'Enabled' : 'Disabled'} queue`);
-        this._options.queued = value;
-        return this;
-    }
-
     @action reset() {
         this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Resetting`);
         this.result = null;
         this.isExecuting = false;
-        this.isError = false;
+        this.hasError = false;
         this.error = null;
         this.wasExecuted = false;
         this._currentCall = null;
@@ -393,7 +391,7 @@ export class ObservablePromise<T extends PromiseAction> {
         this.result = result;
         if (this._currentCall) this._currentCall.result = result;
         this.isExecuting = false;
-        this.isError = false;
+        this.hasError = false;
         this.wasExecuted = true;
         if (!skipPersist && this.persistStore) {
             this.logger.log(LoggingLevel.verbose, `(${this._options.name}) Saving result to store`);
@@ -423,7 +421,7 @@ export class ObservablePromise<T extends PromiseAction> {
         this.logger.log(LoggingLevel.error, `(${this._options.name}) Execution resulted with error (${error})`);
         this.error = error;
         this.isExecuting = false;
-        this.isError = true;
+        this.hasError = true;
         this.wasExecuted = true;
         this.triggerHooks();
         reject && reject(this.error);

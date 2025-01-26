@@ -1,7 +1,7 @@
 const {reaction, toJS} = require("mobx");
 const expect = require('chai').expect;
-const {ObservablePromise, InfiniteObservablePromise} = require('../dist/index.js');
-ObservablePromise.configure({
+const MOP = require('../dist/index.js').default;
+MOP.configure({
   logger: {
     level: "verbose",
     withData: true
@@ -10,7 +10,7 @@ ObservablePromise.configure({
 
 describe('ObservablePromise test', () => {
   it('should return true', async () => {
-    const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
+    const testPromise = MOP((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
     testPromise.getResult()
     await testPromise.execute(500).then(result => {
       expect(result).to.equal(true);
@@ -19,7 +19,7 @@ describe('ObservablePromise test', () => {
 });
 describe('ObservablePromise limitStrings test', () => {
   it('should return true', async () => {
-    const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve({
+    const testPromise = MOP((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve({
       test: {
         test2: '123456'
       }
@@ -41,7 +41,7 @@ describe('ObservablePromise limitStrings test', () => {
 describe('ObservablePromise with delay', () => {
   it('should return true', async () => {
     const start = new Date();
-    const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
+    const testPromise = MOP((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
       delay: 500
     });
 
@@ -56,7 +56,7 @@ describe('ObservablePromise with delay', () => {
 describe('ObservablePromise with fill', () => {
   it('should return true', async () => {
     const start = new Date();
-    const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
+    const testPromise = MOP((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
       fill: 1000
     });
 
@@ -71,7 +71,7 @@ describe('ObservablePromise with fill', () => {
 describe('ObservablePromise with timeout', () => {
   it('should return true', async () => {
     const start = new Date();
-    const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
+    const testPromise = MOP((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
       timeout: 800
     });
 
@@ -84,7 +84,7 @@ describe('ObservablePromise with timeout', () => {
 describe('ObservablePromise queue test', () => {
   it('should return true', async () => {
     let callCount = 0;
-    const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => {
+    const testPromise = MOP((waitMilliseconds) => new Promise(resolve => setTimeout(() => {
       callCount++;
       resolve(true)
     }, waitMilliseconds)));
@@ -96,7 +96,7 @@ describe('ObservablePromise queue test', () => {
 describe('ObservablePromise registerHookOnce test', () => {
   it('should return true', async () => {
     let runCount = 0;
-    const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
+    const testPromise = MOP((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
     testPromise.registerHookOnce(() => runCount++, 'runCountHook');
     await testPromise.queued().execute(500).execute(500).then(result => {
       expect(runCount).to.equal(1);
@@ -106,7 +106,7 @@ describe('ObservablePromise registerHookOnce test', () => {
 describe('ObservablePromise hook must be completed before then()', () => {
   it('should return true', async () => {
     let runCount = 0;
-    const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
+    const testPromise = MOP((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)));
     testPromise.registerHook(() => runCount++, 'runCountHook');
     testPromise.registerHook(() => runCount = 5, 'runCountHook2');
     await testPromise.execute(500).then(result => {
@@ -117,7 +117,7 @@ describe('ObservablePromise hook must be completed before then()', () => {
 describe('CachedObservablePromise test', () => {
   it('should return true', async () => {
     let runCount = 0;
-    const testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => {
+    const testPromise = MOP((waitMilliseconds) => new Promise(resolve => {
       runCount++;
       setTimeout(() => resolve(true), waitMilliseconds);
     }), {cached: true});
@@ -134,7 +134,7 @@ describe('CachedObservablePromise test', () => {
 
 describe('InfiniteObservablePromise test', () => {
   it('should return true', async () => {
-    const testPromise = new InfiniteObservablePromise(async (offset, count) => {
+    const testPromise = MOP(async (offset, count) => {
       const items = [1, 2, 3, 4, 5, 6, 7, 8, 9];
       return {
         offset,
@@ -142,8 +142,10 @@ describe('InfiniteObservablePromise test', () => {
         items: items.slice(offset, offset + count)
       }
     }, {
-      nextArgs: (result, [offset, count], next) => next(offset + count, count),
-      resolve: result => result.items
+      resolver: {
+        nextArgs: (result, [offset, count], next) => next(offset + count, count),
+        resolve: result => result.items
+      }
     });
 
     await testPromise.execute(0, 3).promise;
@@ -156,7 +158,7 @@ describe('InfiniteObservablePromise test', () => {
 
 describe('InfiniteObservablePromise cache test', () => {
   it('should return true', async () => {
-    const testPromise = new InfiniteObservablePromise(async (offset, count) => {
+    const testPromise = MOP(async (offset, count) => {
       const items = [1, 2, 3, 4, 5, 6, 7, 8, 9];
       return {
         offset,
@@ -164,8 +166,10 @@ describe('InfiniteObservablePromise cache test', () => {
         items: items.slice(offset, offset + count)
       }
     }, {
-      nextArgs: (result, [offset, count], next) => next(offset + count, count),
-      resolve: result => result.items
+      resolver: {
+        nextArgs: (result, [offset, count], next) => next(offset + count, count),
+        resolve: result => result.items
+      }
     });
 
     await testPromise.execute(0, 3).promise;
@@ -178,7 +182,7 @@ describe('InfiniteObservablePromise cache test', () => {
 
 describe('InfiniteObservablePromise resultArray reaction test', () => {
   it('should return true', async () => {
-    const testPromise = new InfiniteObservablePromise(async (offset, count) => {
+    const testPromise = MOP(async (offset, count) => {
       const items = [1, 2, 3, 4, 5, 6, 7, 8, 9];
       return {
         offset,
@@ -186,8 +190,10 @@ describe('InfiniteObservablePromise resultArray reaction test', () => {
         items: items.slice(offset, offset + count)
       }
     }, {
-      nextArgs: (result, [offset, count], next) => next(offset + count, count),
-      resolve: result => result.items
+      resolver: {
+        nextArgs: (result, [offset, count], next) => next(offset + count, count),
+        resolve: result => result.items
+      }
     });
 
     let reacted = 0;
@@ -213,7 +219,7 @@ describe('InfiniteObservablePromise resultArray reaction test', () => {
 
 describe('ObservablePromise InfiniteObservablePromise resolve test', () => {
   it('should return true', async () => {
-    const testObsPromise = new ObservablePromise(async (offset, count) => {
+    const testObsPromise = MOP(async (offset, count) => {
       const items = [1, 2, 3, 4, 5, 6, 7, 8, 9];
       return {
         offset,
@@ -221,7 +227,7 @@ describe('ObservablePromise InfiniteObservablePromise resolve test', () => {
         items: items.slice(offset, offset + count)
       }
     });
-    const testPromise = new InfiniteObservablePromise(async (offset, count) => {
+    const testPromise = MOP(async (offset, count) => {
       const items = [1, 2, 3, 4, 5, 6, 7, 8, 9];
       return {
         offset,
@@ -229,8 +235,10 @@ describe('ObservablePromise InfiniteObservablePromise resolve test', () => {
         items: items.slice(offset, offset + count)
       }
     }, {
-      nextArgs: (result, [offset, count], next) => next(offset + count, count),
-      resolve: result => result.items
+      resolver: {
+        nextArgs: (result, [offset, count], next) => next(offset + count, count),
+        resolve: result => result.items
+      }
     });
     //execute obs
     await testObsPromise.execute(0, 3).promise;
@@ -242,20 +250,20 @@ describe('ObservablePromise InfiniteObservablePromise resolve test', () => {
 describe('ObservablePromise persist test', () => {
   it('should return true', async () => {
     const persistStore = {};
-    let testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
+    let testPromise = MOP((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
       name: 'testPromise',
       expiresIn: 1000
     });
-    ObservablePromise.hydrate(persistStore, testPromise);
+    MOP.hydrate(persistStore, testPromise);
     await testPromise.execute(100).then(async result => {
 
       await new Promise(resolve => setTimeout(() => resolve(true), 100))
-      testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
+      testPromise = MOP((waitMilliseconds) => new Promise(resolve => setTimeout(() => resolve(true), waitMilliseconds)), {
         name: 'testPromise',
         expiresIn: 1000
       });
-      console.log('persistStore',persistStore)
-      ObservablePromise.hydrate(persistStore, testPromise);
+      console.log('persistStore', persistStore)
+      MOP.hydrate(persistStore, testPromise);
       expect(testPromise.result).to.equal(true);
     });
 
@@ -266,11 +274,11 @@ describe('CachedObservablePromise persist test', () => {
   it('should return true', async () => {
     let runCount = 0;
     const persistStore = {};
-    let testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => {
+    let testPromise = MOP((waitMilliseconds) => new Promise(resolve => {
       runCount++;
       setTimeout(() => resolve(true), waitMilliseconds);
     }), {name: 'testPromise', expiresIn: 500, cached: true});
-    ObservablePromise.hydrate(persistStore, testPromise);
+    MOP.hydrate(persistStore, testPromise);
     await testPromise.execute(50).then(result => {
       expect(result).to.equal(true);
       expect(runCount).to.equal(1);
@@ -282,11 +290,11 @@ describe('CachedObservablePromise persist test', () => {
 
 
       await new Promise(resolve => setTimeout(() => resolve(true), 300))
-      testPromise = new ObservablePromise((waitMilliseconds) => new Promise(resolve => {
+      testPromise = MOP((waitMilliseconds) => new Promise(resolve => {
         runCount++;
         setTimeout(() => resolve(true), waitMilliseconds);
       }), {name: 'testPromise', expiresIn: 500, cached: true});
-      ObservablePromise.hydrate(persistStore, testPromise);
+      MOP.hydrate(persistStore, testPromise);
       expect(testPromise.result).to.equal(true);
       await testPromise.execute(100).then(result => {
         expect(result).to.equal(true);
@@ -299,7 +307,7 @@ describe('CachedObservablePromise persist test', () => {
 
 describe('ObservablePromise concurrent test', () => {
   it('with queued should return correct result', async () => {
-    const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)), {queued: true});
+    const testPromise = MOP((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)), {queued: true});
     const testFn = (i) => {
       let arg = Math.random().toString();
       return testPromise.execute(randomIntFromInterval(1, 100), arg).then(result => {
@@ -314,7 +322,7 @@ describe('ObservablePromise concurrent test', () => {
   }, 30000);
 
   it('without queued should return correct result', async () => {
-    const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)));
+    const testPromise = MOP((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)));
     let firstArg;
     const testFn = (i) => {
       let arg = Math.random().toString();
@@ -333,7 +341,7 @@ describe('ObservablePromise concurrent test', () => {
 
   it('cached with queued should return correct result', async () => {
     let runCounts = {};
-    const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
+    const testPromise = MOP((waitMilliseconds, arg) => new Promise(resolve => {
       runCounts['_' + arg] = (runCounts['_' + arg] || 0) + 1;
       setTimeout(() => resolve(arg), waitMilliseconds);
     }), {queued: true, cached: true});
@@ -358,7 +366,7 @@ describe('ObservablePromise concurrent test', () => {
 
   it('cached with expiresIn with queued should return correct result', async () => {
     let runCount = 0;
-    const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
+    const testPromise = MOP((waitMilliseconds, arg) => new Promise(resolve => {
       runCount++;
       setTimeout(() => resolve(arg), waitMilliseconds);
     }), {queued: true, expiresIn: 500, cached: true});
@@ -387,7 +395,7 @@ describe('ObservablePromise concurrent test', () => {
 
   it('cached without queued should return correct result', async () => {
     let runCounts = {};
-    const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => {
+    const testPromise = MOP((waitMilliseconds, arg) => new Promise(resolve => {
       runCounts['_' + arg] = (runCounts['_' + arg] || 0) + 1;
       setTimeout(() => resolve(arg), waitMilliseconds);
     }), {cached: true});
@@ -415,7 +423,7 @@ describe('ObservablePromise concurrent test', () => {
 
   it('infinite with queued should return correct result', async () => {
     const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-    const testPromise = new InfiniteObservablePromise((waitMilliseconds, arg, offset, count) =>
+    const testPromise = MOP((waitMilliseconds, arg, offset, count) =>
       new Promise(resolve => setTimeout(() => {
         {
           resolve({
@@ -427,9 +435,11 @@ describe('ObservablePromise concurrent test', () => {
         }
         resolve(arg);
       }, waitMilliseconds)), {
-      nextArgs: (result, [interval, arg, offset, count], next) => next(interval, arg, offset + count, count),
-      resolve: result => result.items
-    }, {queued: true});
+      resolver: {
+        nextArgs: (result, [interval, arg, offset, count], next) => next(interval, arg, offset + count, count),
+        resolve: result => result.items
+      }, queued: true
+    });
 
 
     let testFn = async (i) => {
@@ -459,7 +469,7 @@ describe('ObservablePromise concurrent test', () => {
 
   it('infinite without queued should return correct result', async () => {
     const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-    const testPromise = new InfiniteObservablePromise((waitMilliseconds, arg, offset, count) =>
+    const testPromise = MOP((waitMilliseconds, arg, offset, count) =>
       new Promise(resolve => setTimeout(() => {
         {
           resolve({
@@ -470,8 +480,10 @@ describe('ObservablePromise concurrent test', () => {
         }
         resolve(arg);
       }, waitMilliseconds)), {
-      nextArgs: (result, [interval, arg, offset, count], next) => next(interval, arg, offset + count, count),
-      resolve: result => result.items
+      resolver: {
+        nextArgs: (result, [interval, arg, offset, count], next) => next(interval, arg, offset + count, count),
+        resolve: result => result.items
+      }
     });
 
     let arg = Math.random().toString();
@@ -493,7 +505,7 @@ describe('ObservablePromise concurrent test', () => {
   }, 30000);
 
   it('with queued should throw on cancel', async () => {
-    const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)), {queued: true});
+    const testPromise = MOP((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)), {queued: true});
     const testFn = (i) => {
       let arg = Math.random().toString();
       return testPromise.execute(randomIntFromInterval(1, 100), arg).then(result => {
@@ -514,7 +526,7 @@ describe('ObservablePromise concurrent test', () => {
   }, 30000);
 
   it('without queued should throw on cancel', async () => {
-    const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)));
+    const testPromise = MOP((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)));
 
     let firstArg;
     const testFn = (i) => {
@@ -539,7 +551,7 @@ describe('ObservablePromise concurrent test', () => {
   }, 30000);
 
   it('with args reload', async () => {
-    const testPromise = new ObservablePromise((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)));
+    const testPromise = MOP((waitMilliseconds, arg) => new Promise(resolve => setTimeout(() => resolve(arg), waitMilliseconds)));
 
     testPromise.withArgs(500, 'test').resolve('test');
     expect(testPromise.result).to.equal('test');

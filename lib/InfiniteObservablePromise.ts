@@ -31,7 +31,7 @@ export class InfiniteObservablePromise<T extends PromiseAction, TItem> extends O
         return this._executeInternal(callArgs, false);
     }
 
-    _executeInternal(callArgs: Array<unknown>, isFirst: boolean) {
+    private _executeInternal(callArgs: Array<unknown>, isFirst: boolean) {
         if (this._mutex.isLocked()) {
             if (!this._options.queued) {
                 this.logger.log(LoggingLevel.info, `(${this._options.name}) Skipped execution (${isFirst ? 'initial' : 'next'}), an execution is already in progress`, {args: callArgs});

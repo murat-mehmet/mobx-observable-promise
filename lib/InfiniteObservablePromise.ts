@@ -1,4 +1,4 @@
-import {makeObservable, observable, override, runInAction, toJS} from "mobx";
+import {action, computed, makeObservable, observable, override, runInAction, toJS} from "mobx";
 import {LoggingLevel} from "./Logger";
 import {ObservablePromise, ObservablePromiseOptions, PersistedObject, PromiseAction, PromiseReturnType} from "./ObservablePromise";
 import isEqual from 'lodash.isequal';
@@ -17,6 +17,10 @@ export class InfiniteObservablePromise<T extends PromiseAction, TItem> extends O
         super(action, options);
         makeObservable(this);
         this._resolver = resolver;
+    }
+
+    @computed get isEmpty() {
+        return this.wasSuccessful && !this.resultArray.length
     }
 
     wasExecutedFirstWith(...callArgs: Parameters<T>): boolean {
@@ -148,6 +152,7 @@ export class InfiniteObservablePromise<T extends PromiseAction, TItem> extends O
         return new InfiniteObservablePromise<T, TItem>(this._action, this._resolver, {...this._options, ...options});
     }
 
+    @action
     resolve(result: any) {
         this.resultArray = null;
         this.handleSuccess(result, null);

@@ -1,6 +1,6 @@
 {
   "name": "mobx-observable-promise",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Observable promise implementation for mobx stores",
   "main": "dist/index.js",
   "exports": {

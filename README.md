@@ -430,6 +430,12 @@ const infiniteCallPromise = MOP.infinite(apiService, "fetchPageData", {
 | totalItems  | number  | The total number of items across all pages.                                                                 |
 | totalPages  | number  | The total number of pages in the paginated response. check `error` field for the resulted error object      |
 
+#### Computed Fields
+
+| Property | Type    | Description                                                                                                     |
+|----------|---------|-----------------------------------------------------------------------------------------------------------------|
+| isEmpty  | boolean | Returns true when the promise resolves and result array is empty, can be used to display no content placeholder |
+
 #### Methods
 
 #### `executeNext()`
@@ -528,7 +534,7 @@ MOP.configure({
 const fetchCall = MOP(fetchData, {
     logger: {
         level: "verbose",
-        withData: true, 
+        withData: true,
     }
 });
 ```
@@ -556,6 +562,7 @@ First, you need to create a persistent object on the store, after hydration simp
 ```typescript jsx
 MOP.hydrate(store.persistedObject, store.todoCall);
 ```
+
 ## Global hook
 
 Global hooks are called after every execution of every created promise, can be useful for logging:
